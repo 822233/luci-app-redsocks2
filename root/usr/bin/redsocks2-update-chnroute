@@ -13,7 +13,13 @@ https://raw.githubusercontent.com/gaoyifan/china-operator-ip/ip-lists/china.txt
 "
 
 quiet=0
-[ "${1:-}" = "--quiet" ] && quiet=1
+no_restart=0
+for arg in "$@"; do
+	case "$arg" in
+		--quiet) quiet=1 ;;
+		--no-restart) no_restart=1 ;;
+	esac
+
 
 log() {
 	[ "$quiet" = "1" ] || echo "Redsocks2 China IPv4: $*"
@@ -72,7 +78,7 @@ if ! awk '
 	if (n > 2 || n < 1) { bad=1; exit }
 	if (n == 2 && (parts[2] !~ /^[0-9]+$/ || parts[2] < 0 || parts[2] > 32)) { bad=1; exit }
 
-	o=split(parts[1], octets, ".")
+	o=split(parts[1], octets, "[.]")
 	if (o != 4) { bad=1; exit }
 	for (i=1; i<=4; i++) {
 		if (octets[i] !~ /^[0-9]+$/ || octets[i] < 0 || octets[i] > 255) { bad=1; exit }
@@ -98,4 +104,10 @@ count="$(wc -l < "$target" | tr -d ' ')"
 date '+%Y-%m-%d %H:%M:%S' > /etc/chnroute.last_update
 echo "$count" > /etc/chnroute.count
 log "更新成功：$count 条 IPv4 网段"
+
+# A scheduled update must refresh the nftables set. During service startup,
+# the caller passes --no-restart to avoid recursively restarting itself.
+if [ "$no_restart" != "1" ] && [ -s /var/run/redsocks2.pid ]; then
+	/etc/init.d/redsocks2 restart >/dev/null 2>&1 || log "列表已更新，但 Redsocks2 重启失败"
+fi
 exit 0
