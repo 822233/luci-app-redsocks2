@@ -18,7 +18,7 @@ o:value("off", translate("Off"))
 
 s = m:section(TypedSection, "redsocks2_redirect", translate("Redirector Settings"))
 s.anonymous = true
-s.addremove = true
+s.addremove = false
 
 o = s:option(Value, "local_ip", translate("Local IP"))
 o.datatype = "ip4addr"
@@ -83,20 +83,12 @@ o.datatype = "uinteger"
 s = m:section(TypedSection, "redsocks2_iptables", translate("Firewall4 / nftables Redirect Settings"))
 s.anonymous = true
 
-o = s:option(Flag, "blacklist_enabled", translate("Enable Blacklist"), translate("Specify local IP addresses which won't be redirect to redsocks2."))
+o = s:option(Flag, "whitelist_enabled", translate("国内 IP 直连"), translate("启用后，目标 IP 命中下面的 IPv4 CIDR 列表时直接连接，否则通过 HTTPS 代理。"))
 o.rmempty = false
+o.default = "1"
 
-o = s:option(Value, "ipset_blacklist", translate("Blacklist Path"))
-o:depends({blacklist_enabled=1})
-
-o = s:option(Flag, "whitelist_enabled", translate("Enable Whitelist"), translate("Specify destination IP addresses which won't be redirect to redsocks2."))
-o.rmempty = false
-
-o = s:option(Value, "ipset_whitelist", translate("Domestic IP whitelist file"))
+o = s:option(Value, "ipset_whitelist", translate("国内 IPv4 网段文件"))
 o.default = "/etc/chnroute.txt"
 o:depends({whitelist_enabled=1})
-
-o = s:option(Value, "dest_port", translate("Destination Port"))
-o.datatype = "uinteger"
 
 return m
