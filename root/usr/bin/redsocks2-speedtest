@@ -43,9 +43,9 @@ config_load redsocks2
 
 run_curl() {
 	if [ -n "$CREDENTIAL_FILE" ]; then
-		curl --silent --show-error --location --proxy "$proxy_url" --proxy-insecure --noproxy "" --config "$CREDENTIAL_FILE" "$@"
+		curl --silent --show-error --location --proxy "$proxy_url" $proxy_extra --noproxy "" --config "$CREDENTIAL_FILE" "$@"
 	else
-		curl --silent --show-error --location --proxy "$proxy_url" --proxy-insecure --noproxy "" "$@"
+		curl --silent --show-error --location --proxy "$proxy_url" $proxy_extra --noproxy "" "$@"
 	fi
 }
 
@@ -54,7 +54,7 @@ clear_credential_file() {
 	CREDENTIAL_FILE=""
 }
 test_node() {
-	local section="$1" name="" host="" port="" username="" password="" proxy_url=""
+	local section="$1" name="" host="" port="" username="" password="" proxy_url="" proxy_type="" proxy_extra=""
 	local probe="" code="" elapsed="" latency="" download_result="" bytes="" seconds="" speed=""
 	local url="" speed_url="" reason=""
 
@@ -67,6 +67,7 @@ test_node() {
 	config_get port "$section" port
 	config_get username "$section" username
 	config_get password "$section" password
+	config_get proxy_type "$section" proxy_type https-connect
 
 	case "$host" in
 		""|*[!A-Za-z0-9.:_%\-]*) write_result "$section" FAIL 0 0 0 "服务器地址格式无效"; return 0 ;;
@@ -82,7 +83,17 @@ test_node() {
 	case "$host" in
 		*:* ) host="[$host]" ;;
 	esac
-	proxy_url="https://$host:$port"
+	case "$proxy_type" in
+		https-connect) proxy_url="https://$host:$port"; proxy_extra="--proxy-insecure" ;;
+		http-connect) proxy_url="http://$host:$port" ;;
+		socks4) proxy_url="socks4a://$host:$port" ;;
+		socks5) proxy_url="socks5h://$host:$port" ;;
+		shadowsocks)
+			write_result "$section" FAIL 0 0 0 "Shadowsocks 暂不支持 curl 直连测速"
+			return 0
+			;;
+		*) write_result "$section" FAIL 0 0 0 "不支持的代理类型"; return 0 ;;
+	esac
 
 	# Keep credentials out of the curl process command line.
 	if [ -n "$username" ]; then
