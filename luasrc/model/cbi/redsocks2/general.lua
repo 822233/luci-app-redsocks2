@@ -1,21 +1,12 @@
 -- Redsocks2 HTTPS CONNECT 多节点管理页面
-local fs = require "nixio.fs"
 local sys = require "luci.sys"
 local uci = require "luci.model.uci".cursor()
 
--- Ensure an existing single-node installation is migrated before rendering.
 sys.call("/etc/init.d/redsocks2 migrate >/dev/null 2>&1")
 
 m = Map("redsocks2", "Redsocks2 - HTTPS 透明代理",
-	"管理多个 HTTPS CONNECT 节点。网页测速会通过所选节点实际发起 HTTPS 请求和下载文件，不是 TCP 端口探测。"
+	"管理代理服务和节点。测速与订阅管理请进入“测速与订阅”页面。"
 )
-
-local function read_test_result(section)
-	if not section or not section:match("^[%w_]+$") then
-		return nil
-	end
-	return fs.readfile("/tmp/redsocks2-speedtest-" .. section)
-end
 
 local base = m:section(TypedSection, "redsocks2_base", "服务设置")
 base.anonymous = true
@@ -35,44 +26,6 @@ o.rmempty = false
 uci:foreach("redsocks2", "redsocks2_node", function(node)
 	o:value(node[".name"], node.name or node.ip or node[".name"])
 end)
-
-local all_test = base:option(Button, "_test_all", "节点测速")
-all_test.inputtitle = "全部测速"
-all_test.inputstyle = "apply"
-all_test.write = function()
-	sys.call("/bin/sh /usr/bin/redsocks2-speedtest --all >/dev/null 2>&1 &")
-end
-
-local ranking = base:option(DummyValue, "_speed_ranking", "网页测速速度排名")
-ranking.rawhtml = false
-ranking.cfgvalue = function()
-	local results = {}
-	uci:foreach("redsocks2", "redsocks2_node", function(node)
-		local data = read_test_result(node[".name"])
-		if data then
-			local status, latency, speed, code, tested, message =
-				data:match("^([^|]*)|([^|]*)|([^|]*)|([^|]*)|([^|]*)|([^|]*)")
-			if status == "OK" then
-				results[#results + 1] = {
-					name = node.name or node.ip or node[".name"],
-					latency = latency,
-					speed = tonumber(speed) or 0,
-					tested = tested
-				}
-			end
-		end
-	end)
-	table.sort(results, function(a, b) return a.speed > b.speed end)
-	if #results == 0 then
-		return "暂无成功的测速结果。点击“全部测速”后，等待后台测试完成并刷新页面。"
-	end
-	local lines = {}
-	for i, item in ipairs(results) do
-		lines[#lines + 1] = string.format("%d. %s  |  %s MB/s  |  延迟 %s ms  |  %s",
-			i, item.name, string.format("%.2f", item.speed), item.latency, item.tested)
-	end
-	return table.concat(lines, "\n")
-end
 
 local nodes = m:section(TypedSection, "redsocks2_node", "代理节点列表")
 nodes.anonymous = false
@@ -99,28 +52,6 @@ o.rmempty = true
 o = nodes:option(Value, "password", "密码")
 o.password = true
 o.rmempty = true
-
-o = nodes:option(DummyValue, "_test_result", "网页测速结果")
-o.rawhtml = false
-o.cfgvalue = function(self, section)
-	local data = read_test_result(section)
-	if not data then return "尚未测速" end
-	local status, latency, speed, code, tested, message =
-		data:match("^([^|]*)|([^|]*)|([^|]*)|([^|]*)|([^|]*)|([^|]*)")
-	if status == "OK" then
-		return string.format("可用 | 延迟 %s ms | 下载 %s MB/s | %s", latency, speed, tested)
-	end
-	return "不可用 | " .. (message or "网页请求失败") .. " | " .. (tested or "")
-end
-
-o = nodes:option(Button, "_test_node", "网页测速")
-o.inputtitle = "测速此节点"
-o.inputstyle = "apply"
-o.write = function(self, section)
-	if section and section:match("^[%w_]+$") then
-		sys.call("/bin/sh /usr/bin/redsocks2-speedtest " .. section .. " >/dev/null 2>&1 &")
-	end
-end
 
 local whitelist = m:section(TypedSection, "redsocks2_iptables", "国内地址直连")
 whitelist.anonymous = true
