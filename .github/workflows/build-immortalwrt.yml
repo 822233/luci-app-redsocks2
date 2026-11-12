@@ -39,7 +39,8 @@ jobs:
       - name: Prepare package feeds
         working-directory: ${{ runner.temp }}/sdk
         run: |
-          ./scripts/feeds update luci
+          ./scripts/feeds update packages luci
+          ./scripts/feeds install -p packages libevent2
           ./scripts/feeds install -p luci luci-base
           mkdir -p package/redsocks2
           cp -a "$GITHUB_WORKSPACE/redsocks2/." package/redsocks2/
