@@ -21,7 +21,7 @@ For a TLS HTTP CONNECT endpoint, select **HTTPS CONNECT (TLS)** in LuCI and ente
 - Username/password: only if required
 - Domestic IP whitelist: enable and point to a file containing one IPv4 CIDR per line, for example `1.2.3.0/24`
 
-With a valid China-route CIDR file, matching domestic IPv4 destinations bypass the proxy; other public IPv4 TCP destinations from LAN clients are redirected to the proxy. If the whitelist file is missing or empty, public IPv4 TCP traffic is proxied.
+With a valid China-route CIDR file, matching domestic IPv4 destinations bypass the proxy; other public IPv4 TCP destinations from LAN clients are redirected to the proxy. If the whitelist file is missing while bypass mode is enabled, the firewall redirect is not activated (fail-safe). If the file exists but is empty, public IPv4 TCP traffic is proxied.
 
 The default whitelist path is `/etc/chnroute.txt`. The file is not bundled; provide and maintain the route list yourself.
 
