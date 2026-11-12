@@ -9,6 +9,8 @@ RESULT_PREFIX="/tmp/redsocks2-speedtest-"
 DOWNLOAD_FILE=""
 RESULT_TMP=""
 CREDENTIAL_FILE=""
+TEST_TARGET="google"
+CUSTOM_TEST_URL=""
 
 write_result() {
 	local section="$1" status="$2" latency="$3" speed="$4" code="$5" message="$6"
@@ -41,6 +43,12 @@ fi
 
 config_load redsocks2
 
+load_test_options() {
+	config_get TEST_TARGET "$1" test_target google
+	config_get CUSTOM_TEST_URL "$1" test_url
+}
+config_foreach load_test_options redsocks2_base
+
 run_curl() {
 	if [ -n "$CREDENTIAL_FILE" ]; then
 		curl --silent --show-error --location --proxy "$proxy_url" $proxy_extra --noproxy "" --config "$CREDENTIAL_FILE" "$@"
@@ -56,7 +64,7 @@ clear_credential_file() {
 test_node() {
 	local section="$1" name="" host="" port="" username="" password="" proxy_url="" proxy_type="" proxy_extra=""
 	local probe="" code="" elapsed="" latency="" download_result="" bytes="" seconds="" speed=""
-	local url="" speed_url="" reason="" test_target="" custom_test_url=""
+	local url="" speed_url="" reason=""
 
 	case "$section" in
 		""|*[!A-Za-z0-9_]*) return 0 ;;
@@ -68,9 +76,7 @@ test_node() {
 	config_get username "$section" username
 	config_get password "$section" password
 	config_get proxy_type "$section" proxy_type https-connect
-	config_get test_target "@redsocks2_base[0]" test_target google
-	config_get custom_test_url "@redsocks2_base[0]" test_url
-
+	
 	case "$host" in
 		""|*[!A-Za-z0-9.:_%\-]*) write_result "$section" FAIL 0 0 0 "服务器地址格式无效"; return 0 ;;
 	esac
@@ -109,15 +115,15 @@ test_node() {
 	fi
 
 	# Use the exact connectivity target selected in LuCI.
-	case "$test_target" in
+	case "$TEST_TARGET" in
 		""|google) url="https://www.google.com/generate_204" ;;
 		cloudflare) url="https://cp.cloudflare.com/generate_204" ;;
 		baidu) url="https://www.baidu.com/" ;;
 		bing) url="https://www.bing.com/" ;;
 		github) url="https://github.com/" ;;
 		custom)
-			case "$custom_test_url" in
-				https://*|http://*) url="$custom_test_url" ;;
+			case "$CUSTOM_TEST_URL" in
+				https://*|http://*) url="$CUSTOM_TEST_URL" ;;
 				*) write_result "$section" FAIL 0 0 0 "请填写有效的 HTTP/HTTPS 自定义测速地址"; clear_credential_file; return 0 ;;
 			esac
 			;;
