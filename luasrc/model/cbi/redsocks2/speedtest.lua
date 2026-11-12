@@ -50,7 +50,7 @@ ranking.cfgvalue = function()
 	if #results == 0 then return "暂无测速结果。点击上方按钮开始测试。" end
 	local lines = {}
 	for i,v in ipairs(results) do
-		lines[#lines + 1] = string.format("%d. %s | %.2f MB/s | 延迟 %s ms | %s", i, v.name, v.speed, v.latency, v.tested)
+		lines[#lines + 1] = string.format("%d. %s | %.2f MB/s | 响应 %s ms | %s", i, v.name, v.speed, v.latency, v.tested)
 	end
 	return table.concat(lines, "\n")
 end
@@ -60,7 +60,7 @@ nodes.anonymous = false
 nodes.addremove = false
 nodes.template = "cbi/tblsection"
 
-local result = nodes:option(DummyValue, "_test_result", "网页测速结果")
+local result = nodes:option(DummyValue, "_test_result", "网页响应时间 / 下载结果")
 result.rawhtml = false
 result.cfgvalue = function(self, section)
 	local data = fs.readfile("/tmp/redsocks2-speedtest-" .. section)
