@@ -1,26 +1,20 @@
---[[
- Redsocks2配置页面 Controller
- Copyright (C) 2015 GuoGuo <gch981213@gmail.com>
-]]--
-
+-- Redsocks2 配置页面控制器
 module("luci.controller.redsocks2", package.seeall)
 
 function index()
-
 	if not nixio.fs.access("/etc/config/redsocks2") then
 		return
 	end
 
 	entry({"admin", "services", "redsocks2"},
 		alias("admin", "services", "redsocks2", "general"),
-		_("Redsocks2"))
+		"Redsocks2")
 
 	entry({"admin", "services", "redsocks2", "general"},
 		cbi("redsocks2/general"),
-		_("General Settings"), 10).leaf = true
+		"基本设置", 10).leaf = true
 
 	entry({"admin", "services", "redsocks2", "advanced"},
 		cbi("redsocks2/advanced"),
-		_("Advanced Options"), 20).leaf = true
-
+		"高级设置", 20).leaf = true
 end
