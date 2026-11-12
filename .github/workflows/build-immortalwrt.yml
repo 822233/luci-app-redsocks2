@@ -42,6 +42,7 @@ jobs:
           mkdir -p package/libs/libevent2
           cp "$GITHUB_WORKSPACE/sdk/libevent2/Makefile" package/libs/libevent2/Makefile
           ./scripts/feeds update packages luci
+          ./scripts/feeds install -p packages openssl
           ./scripts/feeds install -p packages libevent2
           ./scripts/feeds install -p luci luci-base
           mkdir -p package/redsocks2
@@ -59,7 +60,7 @@ jobs:
       - name: 编译软件包
         working-directory: ${{ runner.temp }}/sdk
         run: |
-          make package/libs/openssl/compile -j2 V=s
+          make package/feeds/packages/openssl/compile -j2 V=s
           make package/libs/libevent2/compile -j2 V=s
           make package/redsocks2/compile -j2 V=s
           make package/luci-app-redsocks2/compile -j2 V=s
