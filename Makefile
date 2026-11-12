@@ -11,7 +11,7 @@ PKG_RELEASE:=1
 
 LUCI_TITLE:=Redsocks2 透明代理管理界面
 LUCI_DESCRIPTION:=Redsocks2 TCP 透明代理，支持多节点、订阅导入和网页测速
-LUCI_DEPENDS:=+redsocks2 +curl +shadowsocks-libev-ss-local
+LUCI_DEPENDS:=+redsocks2 +curl
 
 include $(TOPDIR)/feeds/luci/luci.mk
 
