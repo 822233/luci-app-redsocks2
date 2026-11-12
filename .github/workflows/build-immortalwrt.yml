@@ -59,16 +59,18 @@ jobs:
           echo "OpenSSL Config.in: $(readlink -f feeds/base/libs/openssl/Config.in)"
           mkdir -p package/redsocks2
           cp -a "$GITHUB_WORKSPACE/redsocks2/." package/redsocks2/
-          mkdir -p feeds/luci/applications/luci-app-redsocks2
-          cp "$GITHUB_WORKSPACE/Makefile" feeds/luci/applications/luci-app-redsocks2/
-          cp -a "$GITHUB_WORKSPACE/luasrc" feeds/luci/applications/luci-app-redsocks2/
-          cp -a "$GITHUB_WORKSPACE/root" feeds/luci/applications/luci-app-redsocks2/
+          # Build the custom LuCI app as a local SDK package. The LuCI feed
+          # supplies luci.mk, but a hand-created package/feeds symlink is not
+          # registered in the SDK package index and therefore has no make target.
+          mkdir -p package/luci-app-redsocks2
+          cp "$GITHUB_WORKSPACE/Makefile" package/luci-app-redsocks2/
+          cp -a "$GITHUB_WORKSPACE/luasrc" package/luci-app-redsocks2/
+          cp -a "$GITHUB_WORKSPACE/root" package/luci-app-redsocks2/
           if [ -d "$GITHUB_WORKSPACE/po" ]; then
-            cp -a "$GITHUB_WORKSPACE/po" feeds/luci/applications/luci-app-redsocks2/
+            cp -a "$GITHUB_WORKSPACE/po" package/luci-app-redsocks2/
           fi
-          mkdir -p package/feeds/luci
-          ln -sfn ../../../feeds/luci/applications/luci-app-redsocks2 package/feeds/luci/luci-app-redsocks2
-          test -f package/feeds/luci/luci-app-redsocks2/Makefile
+          test -f package/luci-app-redsocks2/Makefile
+          test -f feeds/luci/luci.mk
           make defconfig
           # SDKs do not provide the full-source-tree package/metadata target.
           # make defconfig above/below generates the package configuration metadata.
@@ -89,7 +91,7 @@ jobs:
           make package/libs/openssl/compile -j2 V=s
           make package/libs/libevent2/compile -j2 V=s
           make package/redsocks2/compile -j2 V=s
-          make package/feeds/luci/luci-app-redsocks2/compile -j2 V=s
+          make package/luci-app-redsocks2/compile -j2 V=s
 
       - name: 收集 IPK 安装包
         working-directory: ${{ runner.temp }}/sdk
