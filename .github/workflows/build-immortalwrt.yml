@@ -61,6 +61,13 @@ jobs:
           printf '\nCONFIG_PACKAGE_libopenssl=y\n# CONFIG_OPENSSL_ENGINE is not set\n# CONFIG_OPENSSL_ENGINE_BUILTIN is not set\n# CONFIG_OPENSSL_ENGINE_BUILTIN_DEVCRYPTO is not set\nCONFIG_PACKAGE_libopenssl-conf=y\nCONFIG_PACKAGE_libevent2=y\nCONFIG_PACKAGE_libevent2-openssl=y\nCONFIG_PACKAGE_redsocks2=m\nCONFIG_PACKAGE_luci-app-redsocks2=m\n' >> .config
           make defconfig
 
+      - name: Shell 脚本语法检查
+        run: |
+          sh -n "$GITHUB_WORKSPACE/root/etc/init.d/redsocks2"
+          sh -n "$GITHUB_WORKSPACE/root/usr/bin/redsocks2-speedtest"
+          sh -n "$GITHUB_WORKSPACE/root/usr/bin/redsocks2-subscription"
+          sh -n "$GITHUB_WORKSPACE/root/usr/bin/redsocks2-update-chnroute"
+
       - name: 编译软件包
         working-directory: ${{ runner.temp }}/sdk
         run: |
