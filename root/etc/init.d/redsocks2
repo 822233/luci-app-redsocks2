@@ -4,8 +4,8 @@ STOP=10
 EXTRA_COMMANDS="migrate"
 EXTRA_HELP="\tmigrate\tMigrate legacy single-node configuration\n"
 APP=redsocks2
-PID_FILE=/var/run/\${APP}.pid
-CFG_FILE=/var/etc/\${APP}.conf
+PID_FILE=/var/run/${APP}.pid
+CFG_FILE=/var/etc/${APP}.conf
 NFT_TABLE=redsocks2
 LOCK_DIR=/var/lock/redsocks2-service.lock
 
