@@ -44,8 +44,7 @@ jobs:
           cp "$GITHUB_WORKSPACE/sdk/openssl-module.mk" include/openssl-module.mk
           cp "$GITHUB_WORKSPACE/sdk/libevent2/Makefile" package/libs/libevent2/Makefile
           ./scripts/feeds update packages luci
-          ./scripts/feeds install -p packages libevent2
-          ./scripts/feeds install -p luci luci-base
+          ./scripts/feeds install -a
           mkdir -p package/redsocks2
           cp -a "$GITHUB_WORKSPACE/redsocks2/." package/redsocks2/
           mkdir -p feeds/luci/applications/luci-app-redsocks2
