@@ -56,7 +56,7 @@ clear_credential_file() {
 test_node() {
 	local section="$1" name="" host="" port="" username="" password="" proxy_url="" proxy_type="" proxy_extra=""
 	local probe="" code="" elapsed="" latency="" download_result="" bytes="" seconds="" speed=""
-	local url="" speed_url="" reason=""
+	local url="" speed_url="" reason="" test_target="" custom_test_url=""
 
 	case "$section" in
 		""|*[!A-Za-z0-9_]*) return 0 ;;
@@ -68,6 +68,8 @@ test_node() {
 	config_get username "$section" username
 	config_get password "$section" password
 	config_get proxy_type "$section" proxy_type https-connect
+	config_get test_target "@redsocks2_base[0]" test_target google
+	config_get custom_test_url "@redsocks2_base[0]" test_url
 
 	case "$host" in
 		""|*[!A-Za-z0-9.:_%\-]*) write_result "$section" FAIL 0 0 0 "服务器地址格式无效"; return 0 ;;
@@ -106,15 +108,24 @@ test_node() {
 		printf 'proxy-user = "%s"\n' "$escaped_credentials" > "$CREDENTIAL_FILE"
 	fi
 
-	# Probe real HTTPS requests through the TLS-wrapped CONNECT proxy.
-	for url in "https://cp.cloudflare.com/generate_204" "https://www.gstatic.com/generate_204"; do
-		probe="$(run_curl --connect-timeout 10 --max-time 18 -o /dev/null -w '%{http_code}|%{time_total}' "$url" 2>/dev/null)"
-		code="${probe%%|*}"
-		elapsed="${probe#*|}"
-		case "$code" in
-			200|204) break ;;
-		esac
-	done
+	# Use the exact connectivity target selected in LuCI.
+	case "$test_target" in
+		""|google) url="https://www.google.com/generate_204" ;;
+		cloudflare) url="https://cp.cloudflare.com/generate_204" ;;
+		baidu) url="https://www.baidu.com/" ;;
+		bing) url="https://www.bing.com/" ;;
+		github) url="https://github.com/" ;;
+		custom)
+			case "$custom_test_url" in
+				https://*|http://*) url="$custom_test_url" ;;
+				*) write_result "$section" FAIL 0 0 0 "请填写有效的 HTTP/HTTPS 自定义测速地址"; clear_credential_file; return 0 ;;
+			esac
+			;;
+		*) write_result "$section" FAIL 0 0 0 "未知测速地址选项"; clear_credential_file; return 0 ;;
+	esac
+	probe="$(run_curl --connect-timeout 10 --max-time 20 -o /dev/null -w '%{http_code}|%{time_total}' "$url" 2>/dev/null)"
+	code="${probe%%|*}"
+	elapsed="${probe#*|}"
 
 	case "$code" in
 		200|204) ;;
