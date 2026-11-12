@@ -9,6 +9,9 @@ RESULT_PREFIX="/tmp/redsocks2-speedtest-"
 DOWNLOAD_FILE=""
 RESULT_TMP=""
 CREDENTIAL_FILE=""
+SS_CONFIG_FILE=""
+SS_PID_FILE=""
+SS_PID=""
 TEST_TARGET="google"
 CUSTOM_TEST_URL=""
 
@@ -27,6 +30,9 @@ cleanup() {
 	[ -n "$DOWNLOAD_FILE" ] && rm -f "$DOWNLOAD_FILE"
 	[ -n "$RESULT_TMP" ] && rm -f "$RESULT_TMP"
 	[ -n "$CREDENTIAL_FILE" ] && rm -f "$CREDENTIAL_FILE"
+	[ -n "$SS_PID" ] && kill "$SS_PID" 2>/dev/null || true
+	[ -n "$SS_CONFIG_FILE" ] && rm -f "$SS_CONFIG_FILE"
+	[ -n "$SS_PID_FILE" ] && rm -f "$SS_PID_FILE"
 	rmdir "$LOCK_DIR" 2>/dev/null || true
 }
 mkdir -p /var/lock
@@ -60,6 +66,16 @@ run_curl() {
 clear_credential_file() {
 	[ -n "$CREDENTIAL_FILE" ] && rm -f "$CREDENTIAL_FILE"
 	CREDENTIAL_FILE=""
+	[ -n "$SS_PID" ] && kill "$SS_PID" 2>/dev/null || true
+	SS_PID=""
+	[ -n "$SS_CONFIG_FILE" ] && rm -f "$SS_CONFIG_FILE"
+	SS_CONFIG_FILE=""
+	[ -n "$SS_PID_FILE" ] && rm -f "$SS_PID_FILE"
+	SS_PID_FILE=""
+}
+
+json_escape() {
+	printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
 }
 test_node() {
 	local section="$1" name="" host="" port="" username="" password="" proxy_url="" proxy_type="" proxy_extra=""
@@ -97,19 +113,65 @@ test_node() {
 		socks4) proxy_url="socks4a://$host:$port" ;;
 		socks5) proxy_url="socks5h://$host:$port" ;;
 		shadowsocks)
-			write_result "$section" FAIL 0 0 0 "Shadowsocks 暂不支持 curl 直连测速"
-			return 0
+			if ! command -v ss-local >/dev/null 2>&1; then
+				write_result "$section" FAIL 0 0 0 "缺少 ss-local，请安装 shadowsocks-libev-ss-local"
+				return 0
+			fi
+			if [ -z "$username" ] || [ -z "$password" ] || printf '%s' "$username$password" | grep -q '[[:cntrl:]]'; then
+				write_result "$section" FAIL 0 0 0 "Shadowsocks 加密方法或密码无效"
+				return 0
+			fi
+			SS_LOCAL_PORT=$((20000 + ($ % 40000)))
+			SS_CONFIG_FILE="$(mktemp /tmp/redsocks2-ss.XXXXXX)" || {
+				write_result "$section" FAIL 0 0 0 "无法创建 Shadowsocks 临时配置"
+				return 0
+			}
+			SS_PID_FILE="/var/run/redsocks2-ss-local-$.pid"
+			ss_host="$(json_escape "$host")"
+			ss_method="$(json_escape "$username")"
+			ss_password="$(json_escape "$password")"
+			cat > "$SS_CONFIG_FILE" <<EOF
+{
+	"server": "$ss_host",
+	"server_port": $port,
+	"local_address": "127.0.0.1",
+	"local_port": $SS_LOCAL_PORT,
+	"password": "$ss_password",
+	"method": "$ss_method",
+	"timeout": 10,
+	"mode": "tcp_only"
+}
+EOF
+			chmod 0600 "$SS_CONFIG_FILE"
+			ss-local -c "$SS_CONFIG_FILE" -f "$SS_PID_FILE" >/dev/null 2>&1 || {
+				write_result "$section" FAIL 0 0 0 "启动 ss-local 失败"
+				clear_credential_file
+				return 0
+			}
+			for wait_try in 1 2 3 4 5; do
+				[ -s "$SS_PID_FILE" ] && break
+				sleep 1
+			done
+			SS_PID="$(cat "$SS_PID_FILE" 2>/dev/null)"
+			case "$SS_PID" in ""|*[!0-9]*) write_result "$section" FAIL 0 0 0 "ss-local 未能启动"; clear_credential_file; return 0;; esac
+			kill -0 "$SS_PID" 2>/dev/null || {
+				write_result "$section" FAIL 0 0 0 "ss-local 启动后退出"
+				clear_credential_file
+				return 0
+			}
+			proxy_url="socks5h://127.0.0.1:$SS_LOCAL_PORT"
+			proxy_extra=""
 			;;
 		*) write_result "$section" FAIL 0 0 0 "不支持的代理类型"; return 0 ;;
-	esac
+	 esac
 
 	# Keep credentials out of the curl process command line and reject control
 	# characters that could inject additional curl-config directives.
-	if printf '%s' "$username$password" | grep -q '[[:cntrl:]]'; then
+	if [ "$proxy_type" != "shadowsocks" ] && printf '%s' "$username$password" | grep -q '[[:cntrl:]]'; then
 		write_result "$section" FAIL 0 0 0 "认证信息包含非法控制字符"
 		return 0
 	fi
-	if [ -n "$username" ]; then
+	if [ "$proxy_type" != "shadowsocks" ] && [ -n "$username" ]; then
 		CREDENTIAL_FILE="$(mktemp /tmp/redsocks2-curl.XXXXXX)" || {
 			write_result "$section" FAIL 0 0 0 "无法创建认证临时文件"
 			return 0
