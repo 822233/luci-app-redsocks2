@@ -42,13 +42,17 @@ fi
 config_load redsocks2
 
 run_curl() {
-	if [ -n "$username" ]; then
-		curl --silent --show-error --location --proxy "$proxy_url" --proxy-insecure --noproxy "" --proxy-user "$username:$password" "$@"
+	if [ -n "$CREDENTIAL_FILE" ]; then
+		curl --silent --show-error --location --proxy "$proxy_url" --proxy-insecure --noproxy "" --config "$CREDENTIAL_FILE" "$@"
 	else
-		curl --silent --show-error --proxy "$proxy_url" --proxy-insecure --noproxy "" "$@"
+		curl --silent --show-error --location --proxy "$proxy_url" --proxy-insecure --noproxy "" "$@"
 	fi
 }
 
+clear_credential_file() {
+	[ -n "$CREDENTIAL_FILE" ] && rm -f "$CREDENTIAL_FILE"
+	CREDENTIAL_FILE=""
+}
 test_node() {
 	local section="$1" name="" host="" port="" username="" password="" proxy_url=""
 	local probe="" code="" elapsed="" latency="" download_result="" bytes="" seconds="" speed=""
