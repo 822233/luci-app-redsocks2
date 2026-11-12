@@ -14,7 +14,6 @@ PARSED="$TMP/parsed"
 
 config_load redsocks2
 config_get URL "$SUB" url
-config_get SUBNAME "$SUB" name "$SUB"
 [ -n "$URL" ] || { echo "订阅地址为空"; exit 1; }
 
 # URL is passed as a quoted argument; it is never evaluated as shell code.
@@ -36,6 +35,12 @@ if ! grep -q '://' "$RAW"; then
 else
 	cp "$RAW" "$LIST"
 fi
+
+remove_old_node() {
+	local section="$1" source=""
+	config_get source "$section" subscription_id
+	[ "$source" = "$SUB" ] && uci -q delete "redsocks2.$section"
+}
 
 decode_ss() {
 	printf '%s' "$1" | tr '_-' '/+' | base64 -d 2>/dev/null
@@ -104,12 +109,6 @@ done < "$LIST"
 # Only replace nodes belonging to this subscription after at least one valid
 # node has been parsed; manually created nodes are untouched.
 config_foreach remove_old_node redsocks2_node
-remove_old_node() {
-	local section="$1" source=""
-	config_get source "$section" subscription_id
-	[ "$source" = "$SUB" ] && uci -q delete "redsocks2.$section"
-}
-# config_foreach above must see a defined callback; run deletion in a fresh pass.
 uci commit redsocks2
 while IFS='|' read -r proto host port user pass name; do
 	section="$(uci add redsocks2 redsocks2_node)"
