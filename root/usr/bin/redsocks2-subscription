@@ -42,6 +42,16 @@ remove_old_node() {
 	[ "$source" = "$SUB" ] && uci -q delete "redsocks2.$section"
 }
 
+decode_uri_component() {
+	case "$1" in
+		*%*)
+			printf '%s' "$1" | grep -Eq '%([^0-9A-Fa-f]|$|.[^0-9A-Fa-f])' && return 1
+			printf '%b' "$(printf '%s' "$1" | sed 's/%/\\x/g')"
+			;;
+		*) printf '%s' "$1" ;;
+	esac
+}
+
 decode_ss() {
 	printf '%s' "$1" | tr '_-' '/+' | base64 -d 2>/dev/null
 }
@@ -77,22 +87,41 @@ while IFS= read -r line || [ -n "$line" ]; do
 				   case "$decoded" in *@*) auth="${decoded%%@*}"; endpoint="${decoded#*@}";; *) skipped=$((skipped+1)); continue;; esac;;
 			esac
 			case "$auth" in *:*) method="${auth%%:*}"; pass="${auth#*:}";; *) decoded="$(decode_ss "$auth")"; method="${decoded%%:*}"; pass="${decoded#*:}";; esac
+			method="$(decode_uri_component "$method")" || { skipped=$((skipped+1)); continue; }
+			pass="$(decode_uri_component "$pass")" || { skipped=$((skipped+1)); continue; }
 			;;
 		*) skipped=$((skipped+1)); continue;;
 	esac
 	if [ "$proto" != "shadowsocks" ]; then
 		case "$rest" in *@*) auth="${rest%%@*}"; endpoint="${rest#*@}";; *) endpoint="$rest";; esac
 		case "$auth" in *:*) user="${auth%%:*}"; pass="${auth#*:}";; *) user="$auth";; esac
+		user="$(decode_uri_component "$user")" || { skipped=$((skipped+1)); continue; }
+		pass="$(decode_uri_component "$pass")" || { skipped=$((skipped+1)); continue; }
 	fi
 	# IPv4/domain endpoints only for now; bracketed IPv6 is explicitly rejected.
-	case "$endpoint" in *:*) host="${endpoint%:*}"; port="${endpoint##*:}";; *) skipped=$((skipped+1)); continue;; esac
-	case "$host" in ""|*\[*|*\]*|*[!A-Za-z0-9._-]*) skipped=$((skipped+1)); continue;; esac
+	case "$endpoint" in
+		\[*\]:*)
+			host="\${endpoint#\[}"; host="\${host%%\]*}"
+			port="\${endpoint##*\]:}"
+			case "$host" in ""|*[!A-Fa-f0-9:.%]*) skipped=$((skipped+1)); continue;; esac
+			;;
+		*:*)
+			host="\${endpoint%:*}"; port="\${endpoint##*:}"
+			case "$host" in *:*) skipped=$((skipped+1)); continue;; esac
+			case "$host" in ""|*[!A-Za-z0-9._-]*) skipped=$((skipped+1)); continue;; esac
+			;;
+		*) skipped=$((skipped+1)); continue;;
+	esac
 	case "$port" in ""|*[!0-9]*) skipped=$((skipped+1)); continue;; esac
 	[ "$port" -ge 1 ] 2>/dev/null && [ "$port" -le 65535 ] 2>/dev/null || { skipped=$((skipped+1)); continue; }
 	case "$user$pass$method" in *'|'*|*'
 '*|*'\''*) skipped=$((skipped+1)); continue;; esac
 	if [ "$proto" = "shadowsocks" ]; then
 		[ -n "$method" ] && [ -n "$pass" ] || { skipped=$((skipped+1)); continue; }
+		case "$method" in
+			table|rc4|rc4-md5|aes-128-cfb|aes-192-cfb|aes-256-cfb|bf-cfb|camellia-128-cfb|camellia-192-cfb|camellia-256-cfb|cast5-cfb|des-cfb|idea-cfb|rc2-cfb|seed-cfb) ;;
+			*) skipped=$((skipped+1)); continue;;
+		esac
 		user="$method"
 	fi
 	name="$fragment"
@@ -122,11 +151,16 @@ while IFS='|' read -r proto host port user pass name; do
 	uci set "redsocks2.$section.subscription_id=$SUB"
 done < "$PARSED"
 
+# Remove exact duplicate imported entries while preserving their original order.
+awk '!seen[$0]++' "$PARSED" > "$TMP/unique"
+mv "$TMP/unique" "$PARSED"
+count="$(wc -l < "$PARSED" | tr -d ' ')"
+
 # Point active_node at the first imported node only if the old active node
 # was removed or no active node exists.
 active="$(uci -q get redsocks2.@redsocks2_base[0].active_node)"
 if [ -z "$active" ] || ! uci -q get "redsocks2.$active" >/dev/null 2>&1; then
-	first="$(uci -q show redsocks2 | sed -n 's/^redsocks2\.\([^.=]*\)=redsocks2_node$/\1/p' | tail -n 1)"
+	first="$(uci -q show redsocks2 | sed -n 's/^redsocks2\.\([^.=]*\)=redsocks2_node$/\1/p' | head -n 1)"
 	[ -n "$first" ] && uci set "redsocks2.@redsocks2_base[0].active_node=$first"
 fi
 uci commit redsocks2
