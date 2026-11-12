@@ -5,6 +5,10 @@
 
 include $(TOPDIR)/rules.mk
 
+PKG_NAME:=luci-app-redsocks2
+PKG_VERSION:=1.0.1
+PKG_RELEASE:=1
+
 LUCI_TITLE:=Redsocks2 透明代理管理界面
 LUCI_DESCRIPTION:=Redsocks2 HTTPS CONNECT（TLS）透明代理，支持多节点和网页测速
 LUCI_DEPENDS:=+redsocks2 +curl
