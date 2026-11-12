@@ -52,10 +52,12 @@ jobs:
           cp "$GITHUB_WORKSPACE/Makefile" feeds/luci/applications/luci-app-redsocks2/
           cp -a "$GITHUB_WORKSPACE/luasrc" feeds/luci/applications/luci-app-redsocks2/
           cp -a "$GITHUB_WORKSPACE/root" feeds/luci/applications/luci-app-redsocks2/
-          ./scripts/feeds install -p luci luci-app-redsocks2
           if [ -d "$GITHUB_WORKSPACE/po" ]; then
             cp -a "$GITHUB_WORKSPACE/po" feeds/luci/applications/luci-app-redsocks2/
           fi
+          mkdir -p package/feeds/luci
+          ln -sfn ../../../feeds/luci/applications/luci-app-redsocks2 package/feeds/luci/luci-app-redsocks2
+          test -f package/feeds/luci/luci-app-redsocks2/Makefile
           printf '\nCONFIG_PACKAGE_libopenssl=y\n# CONFIG_OPENSSL_ENGINE is not set\n# CONFIG_OPENSSL_ENGINE_BUILTIN is not set\n# CONFIG_OPENSSL_ENGINE_BUILTIN_DEVCRYPTO is not set\nCONFIG_PACKAGE_libopenssl-conf=y\nCONFIG_PACKAGE_libevent2=y\nCONFIG_PACKAGE_libevent2-openssl=y\nCONFIG_PACKAGE_redsocks2=m\nCONFIG_PACKAGE_luci-app-redsocks2=m\n' >> .config
           make defconfig
 
@@ -71,7 +73,7 @@ jobs:
         working-directory: ${{ runner.temp }}/sdk
         run: |
           mkdir -p "$GITHUB_WORKSPACE/dist"
-          find bin/packages -type f \\( -name 'redsocks2_*.ipk' -o -name 'luci-app-redsocks2_*.ipk' \\) -exec cp -v {} "$GITHUB_WORKSPACE/dist/" \\;
+          find bin/packages -type f \( -name 'redsocks2_*.ipk' -o -name 'luci-app-redsocks2_*.ipk' \) -exec cp -v {} "$GITHUB_WORKSPACE/dist/" \;
           test -n "$(find "$GITHUB_WORKSPACE/dist" -name '*.ipk' -print -quit)"
 
       - name: 上传编译产物
@@ -80,5 +82,3 @@ jobs:
           name: redsocks2-immortalwrt-mediatek-filogic
           path: dist/*.ipk
           if-no-files-found: error
-
-# Safe rebuild trigger: no workflow behavior changed.
