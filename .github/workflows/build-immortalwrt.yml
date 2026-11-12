@@ -80,3 +80,5 @@ jobs:
           name: redsocks2-immortalwrt-mediatek-filogic
           path: dist/*.ipk
           if-no-files-found: error
+
+# Safe rebuild trigger: no workflow behavior changed.
