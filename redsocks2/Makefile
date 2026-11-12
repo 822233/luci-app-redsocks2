@@ -8,7 +8,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=redsocks2
 PKG_VERSION:=20170730
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 PKG_REV:=3052eeab75ff1ebd20c22334fbbecd808525bca7
 
 PKG_SOURCE_PROTO:=git
@@ -23,15 +23,16 @@ define Package/redsocks2
   SECTION:=net
   CATEGORY:=Network
   SUBMENU:=Web Servers/Proxies
-  DEPENDS:=+libevent2 +libopenssl
-  TITLE:=Redirect any TCP connection to a SOCKS or HTTPS proxy server
+  DEPENDS:=+libevent2-openssl +libopenssl
+  TITLE:=Redirect TCP connections to SOCKS, HTTP or HTTPS CONNECT proxies
 endef
 
 define Package/redsocks2/description
-  This is a modified version of original redsocks.
-  The name is changed to be REDSOCKS2 since this release to distinguish with original redsocks. 
-  This variant is useful for anti-GFW (Great Fire Wall).
+  Redsocks2 with HTTPS CONNECT (TLS) proxy support enabled.
+  This package only provides TCP proxying.
 endef
+
+MAKE_FLAGS += ENABLE_HTTPS_PROXY=true
 
 define Package/redsocks2/install
 	$(INSTALL_DIR) $(1)/usr/sbin
