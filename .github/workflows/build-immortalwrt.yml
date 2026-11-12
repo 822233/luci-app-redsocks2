@@ -61,14 +61,14 @@ jobs:
           cp -a "$GITHUB_WORKSPACE/redsocks2/." package/redsocks2/
           # Place this local LuCI app directly in the SDK package tree.
           # scripts/feeds install cannot index this standalone LuCI package reliably.
-          mkdir -p package/feeds/custom/luci-app-redsocks2
-          cp "$GITHUB_WORKSPACE/Makefile" package/feeds/custom/luci-app-redsocks2/
-          cp -a "$GITHUB_WORKSPACE/luasrc" package/feeds/custom/luci-app-redsocks2/
-          cp -a "$GITHUB_WORKSPACE/root" package/feeds/custom/luci-app-redsocks2/
+          mkdir -p package/luci-app-redsocks2
+          cp "$GITHUB_WORKSPACE/Makefile" package/luci-app-redsocks2/
+          cp -a "$GITHUB_WORKSPACE/luasrc" package/luci-app-redsocks2/
+          cp -a "$GITHUB_WORKSPACE/root" package/luci-app-redsocks2/
           if [ -d "$GITHUB_WORKSPACE/po" ]; then
-            cp -a "$GITHUB_WORKSPACE/po" package/feeds/custom/luci-app-redsocks2/
+            cp -a "$GITHUB_WORKSPACE/po" package/luci-app-redsocks2/
           fi
-          test -f package/feeds/custom/luci-app-redsocks2/Makefile
+          test -f package/luci-app-redsocks2/Makefile
           test -f feeds/luci/luci.mk
           make defconfig
           # SDKs do not provide the full-source-tree package/metadata target.
@@ -90,7 +90,7 @@ jobs:
           make package/libs/openssl/compile -j2 V=s
           make package/libs/libevent2/compile -j2 V=s
           make package/redsocks2/compile -j2 V=s
-          make package/feeds/custom/luci-app-redsocks2/compile -j2 V=s
+          make package/luci-app-redsocks2/compile -j2 V=s
 
       - name: 收集 IPK 安装包
         working-directory: ${{ runner.temp }}/sdk
