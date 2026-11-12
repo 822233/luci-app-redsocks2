@@ -48,17 +48,17 @@ jobs:
           ./scripts/feeds install -p luci luci-base
           mkdir -p package/redsocks2
           cp -a "$GITHUB_WORKSPACE/redsocks2/." package/redsocks2/
-          mkdir -p "$RUNNER_TEMP/local-feed/luci-app-redsocks2"
-          cp "$GITHUB_WORKSPACE/Makefile" "$RUNNER_TEMP/local-feed/luci-app-redsocks2/"
-          cp -a "$GITHUB_WORKSPACE/luasrc" "$RUNNER_TEMP/local-feed/luci-app-redsocks2/"
-          cp -a "$GITHUB_WORKSPACE/root" "$RUNNER_TEMP/local-feed/luci-app-redsocks2/"
+          mkdir -p feeds/luci/applications/luci-app-redsocks2
+          cp "$GITHUB_WORKSPACE/Makefile" feeds/luci/applications/luci-app-redsocks2/
+          cp -a "$GITHUB_WORKSPACE/luasrc" feeds/luci/applications/luci-app-redsocks2/
+          cp -a "$GITHUB_WORKSPACE/root" feeds/luci/applications/luci-app-redsocks2/
           if [ -d "$GITHUB_WORKSPACE/po" ]; then
-            cp -a "$GITHUB_WORKSPACE/po" "$RUNNER_TEMP/local-feed/luci-app-redsocks2/"
+            cp -a "$GITHUB_WORKSPACE/po" feeds/luci/applications/luci-app-redsocks2/
           fi
-          printf '\nsrc-link local %s\n' "$RUNNER_TEMP/local-feed" >> feeds.conf.default
-          ./scripts/feeds update local
-          ./scripts/feeds install -p local luci-app-redsocks2
-          test -f package/feeds/local/luci-app-redsocks2/Makefile
+          mkdir -p package/feeds/luci
+          ln -sfn ../../../feeds/luci/applications/luci-app-redsocks2 package/feeds/luci/luci-app-redsocks2
+          test -f package/feeds/luci/luci-app-redsocks2/Makefile
+          make package/metadata
           printf '\nCONFIG_PACKAGE_libopenssl=y\n# CONFIG_OPENSSL_ENGINE is not set\n# CONFIG_OPENSSL_ENGINE_BUILTIN is not set\n# CONFIG_OPENSSL_ENGINE_BUILTIN_DEVCRYPTO is not set\nCONFIG_PACKAGE_libopenssl-conf=y\nCONFIG_PACKAGE_libevent2=y\nCONFIG_PACKAGE_libevent2-openssl=y\nCONFIG_PACKAGE_redsocks2=m\nCONFIG_PACKAGE_luci-app-redsocks2=m\n' >> .config
           make defconfig
 
@@ -75,7 +75,7 @@ jobs:
           make package/libs/openssl/compile -j2 V=s
           make package/libs/libevent2/compile -j2 V=s
           make package/redsocks2/compile -j2 V=s
-          make package/feeds/local/luci-app-redsocks2/compile -j2 V=s
+          make package/feeds/luci/luci-app-redsocks2/compile -j2 V=s
 
       - name: 收集 IPK 安装包
         working-directory: ${{ runner.temp }}/sdk
