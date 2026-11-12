@@ -132,7 +132,6 @@ count="$(wc -l < "$PARSED" | tr -d ' ')"
 # Only replace nodes belonging to this subscription after at least one valid
 # node has been parsed; manually created nodes are untouched.
 config_foreach remove_old_node redsocks2_node
-uci commit redsocks2
 first_imported=""
 while IFS='|' read -r proto host port user pass name; do
 	section="$(uci add redsocks2 redsocks2_node)"
@@ -146,6 +145,14 @@ while IFS='|' read -r proto host port user pass name; do
 	uci set "redsocks2.$section.password=$pass"
 	uci set "redsocks2.$section.subscription_id=$SUB"
 done < "$PARSED"
+
+# If UCI could not create any imported section, discard staged deletions
+# so the previous subscription remains intact.
+if [ -z "$first_imported" ]; then
+	uci revert redsocks2
+	echo "导入失败：无法创建节点，已保留原订阅配置"
+	exit 1
+fi
 
 # Point active_node at the first imported node only if the old active node
 # was removed or no active node exists.
