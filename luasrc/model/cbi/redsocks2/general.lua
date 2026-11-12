@@ -40,7 +40,7 @@ local all_test = base:option(Button, "_test_all", "节点测速")
 all_test.inputtitle = "全部测速"
 all_test.inputstyle = "apply"
 all_test.write = function()
-	sys.call("/usr/bin/redsocks2-speedtest --all >/dev/null 2>&1 &")
+	sys.call("/bin/sh /usr/bin/redsocks2-speedtest --all >/dev/null 2>&1 &")
 end
 
 local ranking = base:option(DummyValue, "_speed_ranking", "网页测速速度排名")
@@ -118,7 +118,7 @@ o.inputtitle = "测速此节点"
 o.inputstyle = "apply"
 o.write = function(self, section)
 	if section and section:match("^[%w_]+$") then
-		sys.call("/usr/bin/redsocks2-speedtest " .. section .. " >/dev/null 2>&1 &")
+		sys.call("/bin/sh /usr/bin/redsocks2-speedtest " .. section .. " >/dev/null 2>&1 &")
 	end
 end
 
