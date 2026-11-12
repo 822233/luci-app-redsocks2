@@ -28,12 +28,12 @@ case "$target" in
 	*) log "拒绝非绝对路径：$target"; exit 1 ;;
 esac
 
-mkdir -p "$TMP_DIR" || exit 1
+mkdir -p "$TMP_DIR" /var/lock || exit 1
 if ! mkdir "$LOCK_DIR" 2>/dev/null; then
 	log "更新任务正在运行，跳过本次更新"
 	exit 0
 fi
-trap 'rm -rf "$LOCK_DIR"; rm -f "$download" "$validated"' EXIT INT TERM
+trap 'rm -rf "$LOCK_DIR"; rm -f "${download:-}" "${validated:-}"' EXIT INT TERM
 
 download="$(mktemp "$TMP_DIR/chnroute.download.XXXXXX")" || exit 1
 validated="$(mktemp "$TMP_DIR/chnroute.validated.XXXXXX")" || exit 1
