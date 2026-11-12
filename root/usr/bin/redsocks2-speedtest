@@ -40,7 +40,9 @@ if ! mkdir "$LOCK_DIR" 2>/dev/null; then
 	echo "测速任务正在运行，请稍后再试"
 	exit 1
 fi
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 if ! command -v curl >/dev/null 2>&1; then
 	echo "未安装 curl"
@@ -121,7 +123,7 @@ test_node() {
 				write_result "$section" FAIL 0 0 0 "Shadowsocks 加密方法或密码无效"
 				return 0
 			fi
-			SHELL_PID=$
+			SHELL_PID=$$
 			SS_LOCAL_PORT=$((20000 + (SHELL_PID % 40000)))
 			SS_CONFIG_FILE="$(mktemp /tmp/redsocks2-ss.XXXXXX)" || {
 				write_result "$section" FAIL 0 0 0 "无法创建 Shadowsocks 临时配置"
