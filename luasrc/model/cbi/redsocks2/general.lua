@@ -66,7 +66,7 @@ o = s:option(Value, "password", translate("Password"))
 o:depends({proxy_type="shadowsocks"})
 o:depends({proxy_type="socks5"})
 o:depends({proxy_type="http-relay"})
-o:depends({proxy_type="http-connect"})
+o:depends({proxy_type="https-connect"})
 o.password = true
 
 o = s:option(Value, "interface", translate("Outgoing interface"), translate("Outgoing interface for redsocks2."))
