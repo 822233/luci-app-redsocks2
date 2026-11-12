@@ -41,6 +41,8 @@ jobs:
         run: |
           mkdir -p package/libs/openssl package/libs/libevent2
           cp -a "$GITHUB_WORKSPACE/sdk/openssl/." package/libs/openssl/
+          mkdir -p feeds/base/libs
+          ln -sfn "$PWD/package/libs/openssl" feeds/base/libs/openssl
           cp "$GITHUB_WORKSPACE/sdk/openssl-module.mk" include/openssl-module.mk
           cp "$GITHUB_WORKSPACE/sdk/libevent2/Makefile" package/libs/libevent2/Makefile
           ./scripts/feeds update -a
