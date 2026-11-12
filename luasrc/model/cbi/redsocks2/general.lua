@@ -52,4 +52,8 @@ o.default = "/etc/chnroute.txt"
 o.description = translate("每行一个 IPv4 网段，例如 1.2.3.0/24；命中列表的目标地址直连。")
 o:depends({whitelist_enabled="1"})
 
+m.on_after_commit = function(self)
+	luci.sys.call("/etc/init.d/redsocks2 restart >/dev/null 2>&1")
+end
+
 return m
