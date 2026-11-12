@@ -59,22 +59,17 @@ jobs:
           echo "OpenSSL Config.in: $(readlink -f feeds/base/libs/openssl/Config.in)"
           mkdir -p package/redsocks2
           cp -a "$GITHUB_WORKSPACE/redsocks2/." package/redsocks2/
-          # Use a dedicated local feed. The LuCI feed's own index is generated
-          # from its tracked package set, so copying an untracked app into it
-          # does not reliably register the package in SDK builds.
-          mkdir -p "$GITHUB_WORKSPACE/custom-feed/luci-app-redsocks2"
-          cp "$GITHUB_WORKSPACE/Makefile" "$GITHUB_WORKSPACE/custom-feed/luci-app-redsocks2/"
-          cp -a "$GITHUB_WORKSPACE/luasrc" "$GITHUB_WORKSPACE/custom-feed/luci-app-redsocks2/"
-          cp -a "$GITHUB_WORKSPACE/root" "$GITHUB_WORKSPACE/custom-feed/luci-app-redsocks2/"
+          # Place this local LuCI app directly in the SDK package tree.
+          # scripts/feeds install cannot index this standalone LuCI package reliably.
+          mkdir -p package/feeds/custom/luci-app-redsocks2
+          cp "$GITHUB_WORKSPACE/Makefile" package/feeds/custom/luci-app-redsocks2/
+          cp -a "$GITHUB_WORKSPACE/luasrc" package/feeds/custom/luci-app-redsocks2/
+          cp -a "$GITHUB_WORKSPACE/root" package/feeds/custom/luci-app-redsocks2/
           if [ -d "$GITHUB_WORKSPACE/po" ]; then
-            cp -a "$GITHUB_WORKSPACE/po" "$GITHUB_WORKSPACE/custom-feed/luci-app-redsocks2/"
+            cp -a "$GITHUB_WORKSPACE/po" package/feeds/custom/luci-app-redsocks2/
           fi
-          test -f "$GITHUB_WORKSPACE/custom-feed/luci-app-redsocks2/Makefile"
-          test -f feeds/luci/luci.mk
-          printf '\nsrc-link custom %s\n' "$GITHUB_WORKSPACE/custom-feed" >> feeds.conf.default
-          ./scripts/feeds update custom
-          ./scripts/feeds install -p custom luci-app-redsocks2
           test -f package/feeds/custom/luci-app-redsocks2/Makefile
+          test -f feeds/luci/luci.mk
           make defconfig
           # SDKs do not provide the full-source-tree package/metadata target.
           # make defconfig above/below generates the package configuration metadata.
