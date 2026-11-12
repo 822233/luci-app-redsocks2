@@ -11,6 +11,21 @@ local speed = m:section(TypedSection, "redsocks2_base", "网页测速")
 speed.anonymous = true
 speed.addremove = false
 
+local target = speed:option(ListValue, "test_target", "网页测速地址")
+target.description = "选择用于检测节点实际网页连通性的目标；自定义地址仅支持 HTTP/HTTPS。"
+target:value("google", "Google")
+target:value("cloudflare", "Cloudflare")
+target:value("baidu", "百度")
+target:value("bing", "Bing")
+target:value("github", "GitHub")
+target:value("custom", "自定义")
+target.default = "google"
+
+local custom = speed:option(Value, "test_url", "自定义测速地址")
+custom.placeholder = "https://www.example.com/"
+custom.description = "选择“自定义”时生效，建议填写可直接返回 HTTP 200 或 204 的网页地址。"
+custom.rmempty = true
+
 local all = speed:option(Button, "_test_all", "全部节点测速")
 all.inputtitle = "开始全部测速"
 all.inputstyle = "apply"
