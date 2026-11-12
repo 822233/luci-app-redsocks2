@@ -76,9 +76,15 @@ setup_nft() {
 	# Keep private, link-local, carrier-grade NAT and multicast destinations direct.
 	nft add rule inet "$NFT_TABLE" prerouting iifname "$lan_dev" ip daddr '{ 0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.168.0.0/16, 224.0.0.0/4, 240.0.0.0/4 }' return
 
-	# Require the domestic route file when bypass mode is enabled; fail closed.
+	# If the managed list is missing, make one recovery attempt before
+	# creating rules. The updater validates data and preserves any old list.
+	if [ "$whitelist_enabled" = 1 ] && [ ! -s "$whitelist_file" ] && [ -x /usr/bin/redsocks2-update-chnroute ]; then
+		/usr/bin/redsocks2-update-chnroute --quiet || true
+	fi
+
+	# Require a readable, non-empty domestic route file; fail closed.
 	if [ "$whitelist_enabled" = 1 ]; then
-		if [ ! -r "$whitelist_file" ]; then
+		if [ ! -s "$whitelist_file" ] || [ ! -r "$whitelist_file" ]; then
 			logger -t redsocks2 "Domestic IPv4 list missing: $whitelist_file; redirect not enabled"
 			return 1
 		fi
