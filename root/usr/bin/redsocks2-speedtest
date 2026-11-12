@@ -153,7 +153,7 @@ test_node() {
 
 	# Download a fixed-size payload; retry with a second provider if necessary.
 	for speed_url in "https://speed.cloudflare.com/__down?bytes=3000000" "https://proof.ovh.net/files/1Mb.dat"; do
-		download_result="$(run_curl --connect-timeout 10 --max-time 35 -o "$DOWNLOAD_FILE" -w '%{http_code}|%{size_download}|%{time_starttransfer}' "$speed_url" 2>/dev/null)"
+		download_result="$(run_curl --connect-timeout 10 --max-time 35 -o "$DOWNLOAD_FILE" -w '%{http_code}|%{size_download}|%{time_total}' "$speed_url" 2>/dev/null)"
 		code="${download_result%%|*}"
 		download_result="${download_result#*|}"
 		bytes="${download_result%%|*}"
