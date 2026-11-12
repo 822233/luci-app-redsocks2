@@ -8,6 +8,7 @@ LOCK_DIR="/var/lock/redsocks2-speedtest.lock"
 RESULT_PREFIX="/tmp/redsocks2-speedtest-"
 DOWNLOAD_FILE=""
 RESULT_TMP=""
+CREDENTIAL_FILE=""
 
 write_result() {
 	local section="$1" status="$2" latency="$3" speed="$4" code="$5" message="$6"
@@ -23,6 +24,7 @@ write_result() {
 cleanup() {
 	[ -n "$DOWNLOAD_FILE" ] && rm -f "$DOWNLOAD_FILE"
 	[ -n "$RESULT_TMP" ] && rm -f "$RESULT_TMP"
+	[ -n "$CREDENTIAL_FILE" ] && rm -f "$CREDENTIAL_FILE"
 	rmdir "$LOCK_DIR" 2>/dev/null || true
 }
 mkdir -p /var/lock
@@ -78,6 +80,17 @@ test_node() {
 	esac
 	proxy_url="https://$host:$port"
 
+	# Keep credentials out of the curl process command line.
+	if [ -n "$username" ]; then
+		CREDENTIAL_FILE="$(mktemp /tmp/redsocks2-curl.XXXXXX)" || {
+			write_result "$section" FAIL 0 0 0 "无法创建认证临时文件"
+			return 0
+		}
+		chmod 0600 "$CREDENTIAL_FILE"
+		escaped_credentials="$(printf '%s' "$username:$password" | sed 's/\\/\\\\/g; s/"/\\"/g')"
+		printf 'proxy-user = "%s"\n' "$escaped_credentials" > "$CREDENTIAL_FILE"
+	fi
+
 	# Probe real HTTPS requests through the TLS-wrapped CONNECT proxy.
 	for url in "https://cp.cloudflare.com/generate_204" "https://www.gstatic.com/generate_204"; do
 		probe="$(run_curl --connect-timeout 10 --max-time 18 -o /dev/null -w '%{http_code}|%{time_total}' "$url" 2>/dev/null)"
@@ -90,13 +103,14 @@ test_node() {
 
 	case "$code" in
 		200|204) ;;
-		*) write_result "$section" FAIL 0 0 "${code:-000}" "网页连通性测试失败"; return 0 ;;
+		*) write_result "$section" FAIL 0 0 "${code:-000}" "网页连通性测试失败"; clear_credential_file; return 0 ;;
 	esac
 
 	latency="$(awk -v t="$elapsed" 'BEGIN { if (t ~ /^[0-9.]+$/) printf "%.0f", t * 1000; else print 0 }')"
 
 	DOWNLOAD_FILE="$(mktemp /tmp/redsocks2-download.XXXXXX)" || {
 		write_result "$section" FAIL "$latency" 0 "$code" "无法创建测速临时文件"
+		clear_credential_file
 		return 0
 	}
 
@@ -118,11 +132,13 @@ test_node() {
 
 	if [ "$code" != 200 ] || ! awk -v n="$bytes" 'BEGIN { exit !(n >= 100000) }'; then
 		write_result "$section" FAIL "$latency" 0 "$code" "网页可访问，但下载测速失败"
+		clear_credential_file
 		return 0
 	fi
 
 	speed="$(awk -v n="$bytes" -v t="$seconds" 'BEGIN { if (t > 0) printf "%.2f", n / t / 1048576; else print 0 }')"
 	write_result "$section" OK "$latency" "$speed" "$code" "网页和下载测试通过"
+	clear_credential_file
 }
 
 if [ "${1:-}" = "--all" ]; then
