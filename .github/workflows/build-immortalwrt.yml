@@ -71,7 +71,7 @@ jobs:
           fi
           test -f "$GITHUB_WORKSPACE/custom-feed/luci-app-redsocks2/Makefile"
           test -f feeds/luci/luci.mk
-          printf '\nsrc-link custom %s\\n' "$GITHUB_WORKSPACE/custom-feed" >> feeds.conf.default
+          printf '\nsrc-link custom %s\n' "$GITHUB_WORKSPACE/custom-feed" >> feeds.conf.default
           ./scripts/feeds update custom
           ./scripts/feeds install -p custom luci-app-redsocks2
           test -f package/feeds/custom/luci-app-redsocks2/Makefile
