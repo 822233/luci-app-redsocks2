@@ -1,166 +1,57 @@
---[[
- Redsocks2 基础配置页面
- Copyright (C) 2015 GuoGuo <gch981213@gmail.com>
-]]--
+-- Redsocks2 HTTPS CONNECT 配置页面
+-- 防火墙转发规则由配套服务通过 nftables 管理。
 
-m = Map("redsocks2", translate("Redsocks2 - General Settings"),
-	translatef("A modified version of redsocks.Beside the basic function of redsocks,it can redirect TCP connections which are blocked via proxy automatically without a blacklist.")
+m = Map("redsocks2", "Redsocks2 - HTTPS 透明代理",
+	"将局域网 IPv4 TCP 流量通过 TLS 加密的 HTTP CONNECT 代理转发；可设置国内 IPv4 网段直连。"
 )
 
-s = m:section(TypedSection, "redsocks2_base", translate("Basic Settings"))
+s = m:section(TypedSection, "redsocks2_base", "服务设置")
 s.anonymous = true
-o = s:option(Flag, "enabled", translate("Enable Redsocks2"))
+s.addremove = false
 
-o = s:option(ListValue, "loglevel", translate("Log Level"))
-o:value("debug", translate("Verbose"))
-o:value("info", translate("Normal"))
-o:value("off", translate("Off"))
+o = s:option(Flag, "enabled", "启用 HTTPS 透明代理")
+o.rmempty = false
 
-s = m:section(TypedSection, "redsocks2_redirect", translate("Redirector Settings"))
+o = s:option(ListValue, "loglevel", "日志级别")
+o:value("off", "关闭")
+o:value("info", "普通")
+o:value("debug", "调试")
+o.default = "info"
+
+s = m:section(TypedSection, "redsocks2_redirect", "HTTPS 代理服务器")
 s.anonymous = true
-s.addremove = true
+s.addremove = false
 
-o = s:option(Value, "local_ip", translate("Local IP"))
-o.datatype = "ip4addr"
+o = s:option(Value, "ip", "代理服务器地址")
+o.description = "填写代理服务器域名或 IPv4 地址，例如 fan.571589.xyz。"
+o.rmempty = false
 
-o = s:option(Value, "local_port", translate("Local Port"))
-o.datatype = "uinteger"
+o = s:option(Value, "port", "代理服务器端口")
+o.datatype = "port"
+o.default = "443"
+o.rmempty = false
 
-o = s:option(Value, "ip", translate("Proxy Server IP"))
-o.datatype = "ip4addr"
+o = s:option(Value, "username", "用户名")
+o.description = "代理服务器需要身份验证时填写；不需要验证则留空。"
 
-o = s:option(Value, "port", translate("Proxy Server Port"))
-o.datatype = "uinteger"
-
-o = s:option(ListValue, "proxy_type", translate("Proxy Server Type"))
-o:value("shadowsocks", translate("Shadowsocks"))
-o:value("socks5", translate("Socks5"))
-o:value("http-relay", translate("http-relay"))
-o:value("http-connect", translate("https"))
-o:value("direct", translate("Direct"))
-
-o = s:option(ListValue, "enc_type", translate("Cipher Method"))
-o:depends({proxy_type="shadowsocks"})
-o:value("table")
-o:value("rc4")
-o:value("rc4-md5")
-o:value("aes-128-cfb")
-o:value("aes-192-cfb")
-o:value("aes-256-cfb")
-o:value("bf-cfb")
-o:value("cast5-cfb")
-o:value("des-cfb")
-o:value("camellia-128-cfb")
-o:value("camellia-192-cfb")
-o:value("camellia-256-cfb")
-o:value("idea-cfb")
-o:value("rc2-cfb")
-o:value("seed-cfb")
-
-o = s:option(Value, "username", translate("Username"), translate("Leave empty if your proxy server doesn't need authentication."))
-o:depends({proxy_type="socks5"})
-o:depends({proxy_type="http-relay"})
-o:depends({proxy_type="http-connect"})
-
-o = s:option(Value, "password", translate("Password"))
-o:depends({proxy_type="shadowsocks"})
-o:depends({proxy_type="socks5"})
-o:depends({proxy_type="http-relay"})
-o:depends({proxy_type="http-connect"})
+o = s:option(Value, "password", "密码")
 o.password = true
 
-o = s:option(Value, "interface", translate("Outgoing interface"), translate("Outgoing interface for redsocks2."))
-o:depends({proxy_type="direct"})
-
-o = s:option(Flag, "autoproxy", translate("Enable Auto Proxy"))
-o.rmempty = false
-
-o = s:option(Value, "timeout", translate("Timeout"))
-o:depends({autoproxy=1})
-o.datatype = "uinteger"
-
-
-s = m:section(TypedSection, "redsocks2_udprelay", translate("UDP Relay"))
+s = m:section(TypedSection, "redsocks2_iptables", "国内地址直连")
 s.anonymous = true
-s.addremove = true
+s.addremove = false
 
-o = s:option(Value, "local_ip", translate("Local IP"))
-o.datatype = "ip4addr"
-
-o = s:option(Value, "local_port", translate("Local Port"))
-o.datatype = "uinteger"
-
-o = s:option(Value, "ip", translate("Proxy Server IP"))
-o.datatype = "ip4addr"
-
-o = s:option(Value, "port", translate("Proxy Server Port"))
-o.datatype = "uinteger"
-
-o = s:option(ListValue, "proxy_type", translate("Proxy Server Type"))
-o:value("shadowsocks", translate("Shadowsocks"))
-o:value("socks5", translate("Socks5"))
-o:value("http-relay", translate("http-relay"))
-o:value("http-connect", translate("https"))
-o:value("direct", translate("Direct"))
-
-o = s:option(ListValue, "enc_type", translate("Cipher Method"))
-o:depends({proxy_type="shadowsocks"})
-o:value("table")
-o:value("rc4")
-o:value("rc4-md5")
-o:value("aes-128-cfb")
-o:value("aes-192-cfb")
-o:value("aes-256-cfb")
-o:value("bf-cfb")
-o:value("cast5-cfb")
-o:value("des-cfb")
-o:value("camellia-128-cfb")
-o:value("camellia-192-cfb")
-o:value("camellia-256-cfb")
-o:value("idea-cfb")
-o:value("rc2-cfb")
-o:value("seed-cfb")
-
-o = s:option(Value, "username", translate("Username"), translate("Leave empty if your proxy server doesn't need authentication."))
-o:depends({proxy_type="socks5"})
-o:depends({proxy_type="http-relay"})
-o:depends({proxy_type="http-connect"})
-
-o = s:option(Value, "password", translate("Password"))
-o:depends({proxy_type="shadowsocks"})
-o:depends({proxy_type="http-relay"})
-o:depends({proxy_type="http-connect"})
-o:depends({proxy_type="socks5"})
-o.password = true
-
-o = s:option(Value, "interface", translate("Outgoing interface"), translate("Outgoing interface for redsocks2."))
-o:depends({proxy_type="direct"})
-
-o = s:option(Value, "udp_timeout", translate("UDP Timeout"))
-o.datatype = "uinteger"
-
-o = s:option(Value, "dest_ip", translate("Destination IP"))
-o.datatype = "ip4addr"
-
-o = s:option(Value, "dest_port", translate("Destination Port"))
-o.datatype = "uinteger"
-
-s = m:section(TypedSection, "redsocks2_iptables", translate("Iptables Redirect Settings"))
-s.anonymous = true
-
-o = s:option(Flag, "blacklist_enabled", translate("Enable Blacklist"), translate("Specify local IP addresses which won't be redirect to redsocks2."))
+o = s:option(Flag, "whitelist_enabled", "启用国内 IPv4 网段直连")
+o.default = "1"
 o.rmempty = false
 
-o = s:option(Value, "ipset_blacklist", translate("Blacklist Path"))
-o:depends({blacklist_enabled=1})
+o = s:option(Value, "ipset_whitelist", "国内 IPv4 网段文件")
+o.default = "/etc/chnroute.txt"
+o.description = "每行填写一个 IPv4 网段（CIDR 格式），例如 1.2.3.0/24。命中列表的目标地址直接连接，不经过代理。"
+o:depends({whitelist_enabled="1"})
 
-o = s:option(Flag, "whitelist_enabled", translate("Enable Whitelist"), translate("Specify destination IP addresses which won't be redirect to redsocks2."))
-o.rmempty = false
-
-o = s:option(Value, "ipset_whitelist", translate("Whitelist Path"))
-o:depends({whitelist_enabled=1})
-
-o = s:option(Value, "dest_port", translate("Destination Port"))
-o.datatype = "uinteger"
+m.on_after_commit = function(self)
+	luci.sys.call("/etc/init.d/redsocks2 restart >/dev/null 2>&1")
+end
 
 return m

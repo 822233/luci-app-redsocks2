@@ -1,229 +1,121 @@
 #!/bin/sh /etc/rc.common
-# Copyright (C) 2015 GuoGuo <gch981213@gmail.com>
-# Redsocks2 启动脚本
+# Redsocks2 service for OpenWrt firewall4/nftables.
 START=90
+STOP=10
+
 APP=redsocks2
-PID_FILE=/var/run/$APP.pid
-CFG_FILE=/var/etc/redsocks2.conf
+PID_FILE=/var/run/${APP}.pid
+CFG_FILE=/var/etc/${APP}.conf
+NFT_TABLE=redsocks2
 
-#程序是否启用 CFG_TYPE=redsocks2_base
-if_enabled() {
-	local cfg="$1"
-	config_get_bool enabled "$cfg" 'enabled' '0'
-	[ $enabled = '0' ] && {
-		echo "redsocks2 is not enabled.Exit now."
-		exit 1
-	}
+config_escape() {
+	printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
 }
 
-#基础配置生成 CFG_TYPE=redsocks2_base
-gen_config_base() {
-	local cfg="$1"
-	
-	echo "base {" > $CFG_FILE 
-
-	config_get loglevel "$cfg" 'loglevel'
-	case "$loglevel" in
-		debug)
-			echo "log_debug = on;" >> $CFG_FILE
-			echo "log_info = on;" >> $CFG_FILE
-			;;
-		info)
-			echo "log_debug = off;" >> $CFG_FILE
-			echo "log_info = on;" >> $CFG_FILE
-			;;
-		off)
-			echo "log_debug = off;" >> $CFG_FILE
-			echo "log_info = off;" >> $CFG_FILE
-	esac
-	echo "daemon = on;" >> $CFG_FILE
-	echo "redirector = iptables;" >> $CFG_FILE
-	echo "}" >> $CFG_FILE
+gen_base() {
+	local cfg="$1" loglevel
+	config_get loglevel "$cfg" loglevel info
+	cat > "$CFG_FILE" <<EOF
+base {
+	log_debug = $([ "$loglevel" = debug ] && echo on || echo off);
+	log_info = $([ "$loglevel" = off ] && echo off || echo on);
+	daemon = on;
+	redirector = iptables;
+}
+EOF
 }
 
-#重定向配置文件生成. CFG_TYPE=redsocks2_redirect
-gen_config_redirect() {
-	local cfg="$1"
+gen_redirect() {
+	local cfg="$1" local_ip local_port proxy_host proxy_port proxy_type username password autoproxy timeout
+	config_get local_ip "$cfg" local_ip 0.0.0.0
+	config_get local_port "$cfg" local_port 11111
+	REDSOCKS2_LOCAL_PORT="$local_port"
+	config_get proxy_host "$cfg" ip
+	config_get proxy_port "$cfg" port
+	config_get proxy_type "$cfg" proxy_type https-connect
+	config_get username "$cfg" username
+	config_get password "$cfg" password
+	config_get_bool autoproxy "$cfg" autoproxy 0
+	config_get timeout "$cfg" timeout 3
 
-	config_get local_ip "$cfg" 'local_ip'
-	config_get local_port "$cfg" 'local_port'
-	config_get ip "$cfg" 'ip'
-	config_get port "$cfg" 'port'
-	#代理类型,可选值 socks5 shadowsocks direct
-	config_get proxy_type "$cfg" 'proxy_type'
-	config_get_bool autoproxy "$cfg" 'autoproxy' 0
-	config_get timeout "$cfg" 'timeout'
-	config_get redsocks2_login "$cfg" 'enc_type'
-	[ -z $redsocks2_login ] && config_get redsocks2_login "$cfg" 'username'
-	config_get redsocks2_password "$cfg" 'password'
-	cat >> $CFG_FILE <<EOF
+	[ -n "$proxy_host" ] && [ -n "$proxy_port" ] || return 1
+	proxy_host="$(config_escape "$proxy_host")"
+	username="$(config_escape "$username")"
+	password="$(config_escape "$password")"
+
+	cat >> "$CFG_FILE" <<EOF
 redsocks {
 	local_ip = $local_ip;
 	local_port = $local_port;
-	ip = $ip;
-	port = $port;
+	ip = "$proxy_host";
+	port = $proxy_port;
 	type = $proxy_type;
 	autoproxy = $autoproxy;
 EOF
-	[ $autoproxy = '1' ] && echo "timeout = $timeout;" >> $CFG_FILE
-	case $proxy_type in
-		socks5 | \
-		shadowsocks)
-			[ ! -z $redsocks2_login ] && {
-				echo "login = \"$redsocks2_login\";" >> $CFG_FILE
-				echo "password = \"$redsocks2_password\";" >> $CFG_FILE
-			}
-			;;
-		direct)
-			config_get interface "$cfg" 'interface'
-			[ ! -z $interface ] && echo "interface = $interface;" >> $CFG_FILE
-			;;
-	esac
-	echo "}" >> $CFG_FILE
+	[ "$autoproxy" = 1 ] && echo "	timeout = $timeout;" >> "$CFG_FILE"
+	if [ -n "$username" ]; then
+		echo "	login = \"$username\";" >> "$CFG_FILE"
+		echo "	password = \"$password\";" >> "$CFG_FILE"
+	fi
+	echo "}" >> "$CFG_FILE"
 }
 
-#自动代理判断高级设置 CFG_TYPE=redsocks2_autoproxy
-gen_config_autoproxy() {
-	local cfg="$1"
-	config_get no_quick_check_seconds "$cfg" 'no_quick_check_seconds' 300
-	config_get quick_connect_timeout "$cfg" 'quick_connect_timeout' 2
-	cat >> $CFG_FILE <<EOF
-autoproxy {
-	no_quick_check_seconds = $no_quick_check_seconds;
-	quick_connect_timeout = $quick_connect_timeout;
-}
-EOF
-}
-# IP缓存配置生成 CFG_TYPE=redsocks2_ipcache
-gen_config_ipcache() {
-	local cfg="$1"
-	
-	config_get cache_size "$cfg" 'cache_size' 4
-	config_get cache_file "$cfg" 'cache_file' '/tmp/redsocks2_ipcache.txt'
-	config_get stale_time "$cfg" 'stale_time' 7200
-	config_get autosave_interval "cfg" 'autosave_interval' 3600
-	config_get_bool port_check "$cfg" 'port_check' 0
-	
-	cat >> $CFG_FILE <<EOF
-ipcache {
-	cache_size = $cache_size;
-	cache_file = "$cache_file";
-	stale_time = $stale_time;
-	autosave_interval = $autosave_interval;
-	port_check = $port_check;
-}
-EOF
-}
+setup_nft() {
+	local cfg="$1" whitelist_enabled whitelist_file local_port lan_dev cidr
+	config_get_bool whitelist_enabled "$cfg" whitelist_enabled 0
+	config_get whitelist_file "$cfg" ipset_whitelist /etc/chnroute.txt
+	local_port="$REDSOCKS2_LOCAL_PORT"
+	[ -n "$local_port" ] || local_port=11111
+	lan_dev="$(ubus call network.interface.lan status 2>/dev/null | jsonfilter -e '@.device' 2>/dev/null)"
+	[ -n "$lan_dev" ] || lan_dev="br-lan"
 
-#redsocks2 UDP转发 CFG_TYPE=redsocks2_udprelay
-gen_config_udprelay() {
-	local cfg="$1"
+	nft delete table inet "$NFT_TABLE" 2>/dev/null
+	nft add table inet "$NFT_TABLE" || return 1
+	nft add chain inet "$NFT_TABLE" prerouting '{ type nat hook prerouting priority -99; policy accept; }' || return 1
 
-	config_get local_ip "$cfg" 'local_ip'
-	config_get local_port "$cfg" 'local_port'
-	config_get ip "$cfg" 'ip'
-	config_get port "$cfg" 'port'
-	#代理类型,可选值 socks5 shadowsocks direct
-	config_get proxy_type "$cfg" 'proxy_type'
-	config_get udp_timeout "$cfg" 'udp_timeout'
-	config_get redsocks2_login "$cfg" 'enc_type'
-	[ -z $redsocks2_login ] && config_get redsocks2_login "$cfg" 'username'
-	config_get redsocks2_password "$cfg" 'password'
-	config_get dest_ip "$cfg" 'dest_ip'
-	config_get dest_port "$cfg" 'dest_port'
-	cat >> $CFG_FILE <<EOF
-redudp {
-	local_ip = $local_ip;
-	local_port = $local_port;
-	ip = $ip;
-	port = $port;
-	type = $proxy_type;
-	dest_ip = $dest_ip;
-	dest_port = $dest_port;
-	udp_timeout = $udp_timeout;
-EOF
-	case "$proxy_type" in
-		socks5 | \
-		shadowsocks)
-			[ ! -z $redsocks2_login ] && {
-				echo "login = \"$redsocks2_login\";" >> $CFG_FILE
-				echo "password = \"$redsocks2_password\";" >> $CFG_FILE
-			}
-			;;
-		direct)
-			config_get interface "$cfg" 'interface'
-			[ ! -z $interface ] && echo "interface = $interface;" >> $CFG_FILE
-			;;
-	esac
-	echo "}" >> $CFG_FILE
-}
+	# Keep private, link-local, carrier-grade NAT and multicast destinations direct.
+	nft add rule inet "$NFT_TABLE" prerouting iifname "$lan_dev" ip daddr '{ 0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.168.0.0/16, 224.0.0.0/4, 240.0.0.0/4 }' return
 
-#redsocks2 iptables流量劫持设定 CFG_TYPE=redsocks2_iptables
-redsocks2_iptables_start_instance() {
-	local cfg="$1"
-
-	local CHAIN_NAME="REDSOCKS2_$cfg"
-	config_get blacklist_enabled "$cfg" 'blacklist_enabled'
-	config_get ipset_blacklist "$cfg" 'ipset_blacklist'
-	config_get whitelist_enabled "$cfg" 'whitelist_enabled'
-	config_get ipset_whitelist "$cfg" 'ipset_whitelist'
-	config_get dest_port "$cfg" 'dest_port'
-
-	iptables -t nat -N $CHAIN_NAME
-	iptables -t nat -A $CHAIN_NAME -d 0.0.0.0/8 -j RETURN
-	iptables -t nat -A $CHAIN_NAME -d 10.0.0.0/8 -j RETURN
-	iptables -t nat -A $CHAIN_NAME -d 127.0.0.0/8 -j RETURN
-	iptables -t nat -A $CHAIN_NAME -d 169.254.0.0/16 -j RETURN
-	iptables -t nat -A $CHAIN_NAME -d 172.16.0.0/12 -j RETURN
-	iptables -t nat -A $CHAIN_NAME -d 192.168.0.0/16 -j RETURN
-	iptables -t nat -A $CHAIN_NAME -d 224.0.0.0/4 -j RETURN
-	iptables -t nat -A $CHAIN_NAME -d 240.0.0.0/4 -j RETURN
-
-	[ "$blacklist_enabled" = '1' ] && {
-		sed -e "s/^/-A blacklist &/g" -e "1 i\-N blacklist nethash --hashsize 64" $ipset_blacklist | ipset -R -!
-		iptables -t nat -A $CHAIN_NAME -p tcp -m set --match-set blacklist src -j RETURN
-	}
-	if [ "$whitelist_enabled" = '1' ];then
-		sed -e "s/^/-A whitelist &/g" -e "1 i\-N whitelist nethash --hashsize 4096" $ipset_whitelist | ipset -R -!
-		iptables -t nat -A $CHAIN_NAME -p tcp -m set ! --match-set whitelist dst -j REDIRECT --to-ports "$dest_port"
-	else
-		iptables -t nat -A $CHAIN_NAME -p tcp -j REDIRECT --to-ports "$dest_port"
+	# Require the domestic route file when bypass mode is enabled; fail closed.
+	if [ "$whitelist_enabled" = 1 ]; then
+		if [ ! -r "$whitelist_file" ]; then
+			logger -t redsocks2 "Domestic IPv4 list missing: $whitelist_file; redirect not enabled"
+			return 1
+		fi
+		nft add set inet "$NFT_TABLE" china4 '{ type ipv4_addr; flags interval; auto-merge; }'
+		while IFS= read -r cidr || [ -n "$cidr" ]; do
+			cidr="${cidr%%#*}"
+			cidr="$(echo "$cidr" | tr -d '[:space:]')"
+			case "$cidr" in
+				""|*[!0-9./]*) continue ;;
+			esac
+			nft add element inet "$NFT_TABLE" china4 "{ $cidr }" 2>/dev/null
+		done < "$whitelist_file"
+		nft add rule inet "$NFT_TABLE" prerouting iifname "$lan_dev" ip daddr @china4 return
 	fi
 
-	iptables -t nat -I zone_lan_prerouting -j $CHAIN_NAME
-}
-
-redsocks2_iptables_stop_instance() {
-	local cfg="$1"
-
-	local CHAIN_NAME="REDSOCKS2_$cfg"
-
- 	iptables -t nat -D zone_lan_prerouting -j $CHAIN_NAME &> /dev/null
-	iptables -t nat -F $CHAIN_NAME &> /dev/null
-	sleep 1
-	iptables -t nat -X $CHAIN_NAME &> /dev/null
-	ipset destroy whitelist &> /dev/null
-	ipset destroy blacklist &> /dev/null
+	nft add rule inet "$NFT_TABLE" prerouting iifname "$lan_dev" meta l4proto tcp redirect to :$local_port
 }
 
 start() {
+	local enabled=0
+	config_load redsocks2
+	service_stop /usr/sbin/redsocks2 2>/dev/null
+	nft delete table inet "$NFT_TABLE" 2>/dev/null
+	load_enabled() { config_get_bool enabled "$1" enabled 0; }
+	config_foreach load_enabled redsocks2_base
+	[ "$enabled" = 1 ] || return 0
 
-	config_load 'redsocks2'
-	config_foreach if_enabled 'redsocks2_base'
-
-	config_foreach gen_config_base 'redsocks2_base'
-	config_foreach gen_config_redirect 'redsocks2_redirect'
-	config_foreach gen_config_autoproxy 'redsocks2_autoproxy'
-	config_foreach gen_config_ipcache 'redsocks2_ipcache'
-	config_foreach gen_config_udprelay 'redsocks2_udprelay'
-
-	service_start /usr/sbin/redsocks2 -c $CFG_FILE -p $PID_FILE
-
-	config_foreach redsocks2_iptables_start_instance 'redsocks2_iptables'
+	mkdir -p /var/etc
+	config_foreach gen_base redsocks2_base
+	config_foreach gen_redirect redsocks2_redirect
+	[ -s "$CFG_FILE" ] || return 1
+	/usr/sbin/redsocks2 -c "$CFG_FILE" -p "$PID_FILE" || return 1
+	config_foreach setup_nft redsocks2_iptables
 }
 
 stop() {
-	config_load 'redsocks2'
-	service_stop /usr/sbin/redsocks2 && rm -rf $PID_FILE
-	config_foreach redsocks2_iptables_stop_instance 'redsocks2_iptables'
+	service_stop /usr/sbin/redsocks2
+	rm -f "$PID_FILE"
+	nft delete table inet "$NFT_TABLE" 2>/dev/null
 }
