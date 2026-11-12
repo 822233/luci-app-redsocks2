@@ -12,6 +12,70 @@ config_escape() {
 	printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
 }
 
+# Convert the legacy single-server configuration to a node section once.
+migrate_legacy_node() {
+	local cfg="$1" proxy_host proxy_port proxy_type username password local_ip local_port autoproxy timeout node
+	config_get proxy_host "$cfg" ip
+	config_get proxy_port "$cfg" port
+	[ -n "$proxy_host" ] && [ -n "$proxy_port" ] || return 0
+
+	node="$(uci add redsocks2 redsocks2_node 2>/dev/null)"
+	[ -n "$node" ] || return 1
+	config_get proxy_type "$cfg" proxy_type https-connect
+	config_get username "$cfg" username
+	config_get password "$cfg" password
+	config_get local_ip "$cfg" local_ip 0.0.0.0
+	config_get local_port "$cfg" local_port 11111
+	config_get_bool autoproxy "$cfg" autoproxy 0
+	config_get timeout "$cfg" timeout 3
+
+	uci set "redsocks2.$node.name=默认节点"
+	uci set "redsocks2.$node.ip=$proxy_host"
+	uci set "redsocks2.$node.port=$proxy_port"
+	uci set "redsocks2.$node.proxy_type=$proxy_type"
+	uci set "redsocks2.$node.username=$username"
+	uci set "redsocks2.$node.password=$password"
+	uci set "redsocks2.$node.local_ip=$local_ip"
+	uci set "redsocks2.$node.local_port=$local_port"
+	uci set "redsocks2.$node.autoproxy=$autoproxy"
+	uci set "redsocks2.$node.timeout=$timeout"
+	uci set "redsocks2.@redsocks2_base[0].active_node=$node"
+}
+
+migrate_count_node() {
+	node_count=$((node_count + 1))
+}
+
+migrate_check_active() {
+	[ "$1" = "$active_node" ] && active_found=1
+}
+
+migrate_choose_first() {
+	[ -n "$active_node" ] && return
+	active_node="$1"
+	uci set "redsocks2.@redsocks2_base[0].active_node=$1"
+}
+
+migrate() {
+	local node_count=0 active_node= active_found=0
+	config_load redsocks2
+	config_foreach migrate_count_node redsocks2_node
+	config_foreach migrate_check_active redsocks2_node
+
+	if [ "$node_count" -eq 0 ]; then
+		config_foreach migrate_legacy_node redsocks2_redirect
+		uci commit redsocks2
+		return 0
+	fi
+
+	if [ "$active_found" != 1 ]; then
+		active_node=
+		config_foreach migrate_choose_first redsocks2_node
+		uci commit redsocks2
+	fi
+	return 0
+}
+
 gen_base() {
 	local cfg="$1" loglevel
 	config_get loglevel "$cfg" loglevel info
@@ -104,17 +168,25 @@ setup_nft() {
 }
 
 start() {
-	local enabled=0
-	config_load redsocks2
+	local enabled=0 active_node=
 	service_stop /usr/sbin/redsocks2 2>/dev/null
 	nft delete table inet "$NFT_TABLE" 2>/dev/null
+	migrate
+	config_load redsocks2
 	load_enabled() { config_get_bool enabled "$1" enabled 0; }
+	load_active() { config_get active_node "$1" active_node; }
 	config_foreach load_enabled redsocks2_base
 	[ "$enabled" = 1 ] || return 0
 
+	config_foreach load_active redsocks2_base
+	[ -n "$active_node" ] || {
+		logger -t redsocks2 "No proxy node configured"
+		return 1
+	}
+
 	mkdir -p /var/etc
 	config_foreach gen_base redsocks2_base
-	config_foreach gen_redirect redsocks2_redirect
+	gen_redirect "$active_node" || return 1
 	[ -s "$CFG_FILE" ] || return 1
 	/usr/sbin/redsocks2 -c "$CFG_FILE" -p "$PID_FILE" || return 1
 	config_foreach setup_nft redsocks2_iptables
