@@ -1,0 +1,12 @@
+WallTool? no
+Redsocks2 LuCI 1.0.3
+====================
+
+- Add selectable webpage connectivity targets and custom HTTP/HTTPS URL.
+- Measure webpage time-to-first-byte separately from full download throughput.
+- Verify HTTPS proxy certificates instead of disabling proxy certificate checks.
+- Add optional isolated ss-local based Shadowsocks webpage testing.
+- Deduplicate subscription nodes before UCI import.
+- Preserve the first newly imported node when the previous active node was removed.
+- Decode percent-encoded subscription credentials and validate supported Shadowsocks ciphers.
+- Register the local LuCI package directly in the ImmortalWrt SDK package tree.
