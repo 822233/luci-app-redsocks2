@@ -121,12 +121,13 @@ test_node() {
 				write_result "$section" FAIL 0 0 0 "Shadowsocks 加密方法或密码无效"
 				return 0
 			fi
-			SS_LOCAL_PORT=$((20000 + ($ % 40000)))
+			SHELL_PID=$
+			SS_LOCAL_PORT=$((20000 + (SHELL_PID % 40000)))
 			SS_CONFIG_FILE="$(mktemp /tmp/redsocks2-ss.XXXXXX)" || {
 				write_result "$section" FAIL 0 0 0 "无法创建 Shadowsocks 临时配置"
 				return 0
 			}
-			SS_PID_FILE="/var/run/redsocks2-ss-local-$.pid"
+			SS_PID_FILE="/var/run/redsocks2-ss-local-$SHELL_PID.pid"
 			ss_host="$(json_escape "$host")"
 			ss_method="$(json_escape "$username")"
 			ss_password="$(json_escape "$password")"
