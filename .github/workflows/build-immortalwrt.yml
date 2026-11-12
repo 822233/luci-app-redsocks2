@@ -39,6 +39,7 @@ jobs:
       - name: 准备软件包编译环境
         working-directory: ${{ runner.temp }}/sdk
         run: |
+          set -euxo pipefail
           mkdir -p package/libs/openssl package/libs/libevent2
           cp -a "$GITHUB_WORKSPACE/sdk/openssl/." package/libs/openssl/
           cp "$GITHUB_WORKSPACE/sdk/openssl-module.mk" include/openssl-module.mk
@@ -69,9 +70,12 @@ jobs:
           ln -sfn ../../../feeds/luci/applications/luci-app-redsocks2 package/feeds/luci/luci-app-redsocks2
           test -f package/feeds/luci/luci-app-redsocks2/Makefile
           make defconfig
-          make package/metadata
+          # Keep metadata generation serial and verbose: the previous run failed
+          # inside package/metadata without exposing the underlying command error.
+          make -j1 V=s package/metadata
           printf '\nCONFIG_PACKAGE_libopenssl=y\n# CONFIG_OPENSSL_ENGINE is not set\n# CONFIG_OPENSSL_ENGINE_BUILTIN is not set\n# CONFIG_OPENSSL_ENGINE_BUILTIN_DEVCRYPTO is not set\nCONFIG_PACKAGE_libopenssl-conf=y\nCONFIG_PACKAGE_libevent2=y\nCONFIG_PACKAGE_libevent2-openssl=y\nCONFIG_PACKAGE_redsocks2=m\nCONFIG_PACKAGE_luci-app-redsocks2=m\n' >> .config
           make defconfig
+          grep -E '^(CONFIG_PACKAGE_(libopenssl|libopenssl-conf|libevent2|libevent2-openssl|redsocks2|luci-app-redsocks2)=)' .config
 
       - name: Shell 脚本语法检查
         run: |
@@ -91,9 +95,28 @@ jobs:
       - name: 收集 IPK 安装包
         working-directory: ${{ runner.temp }}/sdk
         run: |
+          set -euxo pipefail
           mkdir -p "$GITHUB_WORKSPACE/dist"
           find bin/packages -type f \( -name 'redsocks2_*.ipk' -o -name 'luci-app-redsocks2_*.ipk' \) -exec cp -v {} "$GITHUB_WORKSPACE/dist/" \;
-          test -n "$(find "$GITHUB_WORKSPACE/dist" -name '*.ipk' -print -quit)"
+
+          # Require exactly the two intended packages; fail on missing or duplicate variants.
+          mapfile -t ipks < <(find "$GITHUB_WORKSPACE/dist" -maxdepth 1 -type f -name '*.ipk' | sort)
+          test "${#ipks[@]}" -eq 2
+          for expected in redsocks2 luci-app-redsocks2; do
+            matches=("$GITHUB_WORKSPACE"/dist/"$expected"_*.ipk)
+            test "${#matches[@]}" -eq 1
+            ipk="${matches[0]}"
+            members="$(ar t "$ipk")"
+            control_member="$(printf '%s\n' "$members" | grep -m1 '^control\.tar')"
+            test -n "$control_member"
+            control="$(ar p "$ipk" "$control_member" | tar -xzOf - ./control)"
+            printf '%s\n' "$control" | grep -Fx "Package: $expected"
+            printf '%s\n' "$control" | grep -Eq '^Version: [^[:space:]]+'
+            printf '%s\n' "$control" | grep -Eq '^Architecture: [^[:space:]]+'
+            echo "Verified $ipk"
+            printf '%s\n' "$control"
+          done
+          sha256sum "${ipks[@]}"
 
       - name: 上传编译产物
         uses: actions/upload-artifact@v4
