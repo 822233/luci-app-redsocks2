@@ -114,7 +114,7 @@ test_node() {
 		socks5) proxy_url="socks5h://$host:$port" ;;
 		shadowsocks)
 			if ! command -v ss-local >/dev/null 2>&1; then
-				write_result "$section" FAIL 0 0 0 "缺少 ss-local，请安装 shadowsocks-libev-ss-local"
+				write_result "$section" FAIL 0 0 0 "未检测到 ss-local，当前系统缺少兼容的 Shadowsocks 本地客户端"
 				return 0
 			fi
 			if [ -z "$username" ] || [ -z "$password" ] || printf '%s' "$username$password" | grep -q '[[:cntrl:]]'; then
