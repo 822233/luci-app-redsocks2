@@ -48,6 +48,10 @@ migrate_count_node() {
 	node_count=$((node_count + 1))
 }
 
+migrate_load_active() {
+	config_get active_node "$1" active_node
+}
+
 migrate_check_active() {
 	[ "$1" = "$active_node" ] && active_found=1
 }
@@ -62,6 +66,7 @@ migrate() {
 	local node_count=0 active_node= active_found=0
 	config_load redsocks2
 	config_foreach migrate_count_node redsocks2_node
+	config_foreach migrate_load_active redsocks2_base
 	config_foreach migrate_check_active redsocks2_node
 
 	if [ "$node_count" -eq 0 ]; then
