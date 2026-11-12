@@ -59,20 +59,22 @@ jobs:
           echo "OpenSSL Config.in: $(readlink -f feeds/base/libs/openssl/Config.in)"
           mkdir -p package/redsocks2
           cp -a "$GITHUB_WORKSPACE/redsocks2/." package/redsocks2/
-          # Register the custom app through the LuCI feed index so the SDK
-          # creates the package/feeds symlink and Make targets consistently.
-          mkdir -p feeds/luci/applications/luci-app-redsocks2
-          cp "$GITHUB_WORKSPACE/Makefile" feeds/luci/applications/luci-app-redsocks2/
-          cp -a "$GITHUB_WORKSPACE/luasrc" feeds/luci/applications/luci-app-redsocks2/
-          cp -a "$GITHUB_WORKSPACE/root" feeds/luci/applications/luci-app-redsocks2/
+          # Use a dedicated local feed. The LuCI feed's own index is generated
+          # from its tracked package set, so copying an untracked app into it
+          # does not reliably register the package in SDK builds.
+          mkdir -p "$GITHUB_WORKSPACE/custom-feed/luci-app-redsocks2"
+          cp "$GITHUB_WORKSPACE/Makefile" "$GITHUB_WORKSPACE/custom-feed/luci-app-redsocks2/"
+          cp -a "$GITHUB_WORKSPACE/luasrc" "$GITHUB_WORKSPACE/custom-feed/luci-app-redsocks2/"
+          cp -a "$GITHUB_WORKSPACE/root" "$GITHUB_WORKSPACE/custom-feed/luci-app-redsocks2/"
           if [ -d "$GITHUB_WORKSPACE/po" ]; then
-            cp -a "$GITHUB_WORKSPACE/po" feeds/luci/applications/luci-app-redsocks2/
+            cp -a "$GITHUB_WORKSPACE/po" "$GITHUB_WORKSPACE/custom-feed/luci-app-redsocks2/"
           fi
-          test -f feeds/luci/applications/luci-app-redsocks2/Makefile
+          test -f "$GITHUB_WORKSPACE/custom-feed/luci-app-redsocks2/Makefile"
           test -f feeds/luci/luci.mk
-          ./scripts/feeds update -i luci
-          ./scripts/feeds install -p luci luci-app-redsocks2
-          test -f package/feeds/luci/luci-app-redsocks2/Makefile
+          printf '\nsrc-link custom %s\\n' "$GITHUB_WORKSPACE/custom-feed" >> feeds.conf.default
+          ./scripts/feeds update custom
+          ./scripts/feeds install -p custom luci-app-redsocks2
+          test -f package/feeds/custom/luci-app-redsocks2/Makefile
           make defconfig
           # SDKs do not provide the full-source-tree package/metadata target.
           # make defconfig above/below generates the package configuration metadata.
@@ -93,7 +95,7 @@ jobs:
           make package/libs/openssl/compile -j2 V=s
           make package/libs/libevent2/compile -j2 V=s
           make package/redsocks2/compile -j2 V=s
-          make package/feeds/luci/luci-app-redsocks2/compile -j2 V=s
+          make package/feeds/custom/luci-app-redsocks2/compile -j2 V=s
 
       - name: 收集 IPK 安装包
         working-directory: ${{ runner.temp }}/sdk
