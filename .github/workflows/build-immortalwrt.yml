@@ -41,15 +41,21 @@ jobs:
         run: |
           mkdir -p package/libs/openssl package/libs/libevent2
           cp -a "$GITHUB_WORKSPACE/sdk/openssl/." package/libs/openssl/
-          mkdir -p feeds/base/libs
-          rm -rf feeds/base/libs/openssl
-          ln -s "$PWD/package/libs/openssl" feeds/base/libs/openssl
-          test -f feeds/base/libs/openssl/Config.in
           cp "$GITHUB_WORKSPACE/sdk/openssl-module.mk" include/openssl-module.mk
           cp "$GITHUB_WORKSPACE/sdk/libevent2/Makefile" package/libs/libevent2/Makefile
+
+          # Update feeds first: feed update may recreate the feeds tree, so the
+          # compatibility link for this SDK's OpenSSL Config.in must be added after it.
           ./scripts/feeds update -a
           ./scripts/feeds install -p packages curl
           ./scripts/feeds install -p luci luci-base
+
+          mkdir -p feeds/base/libs
+          rm -rf feeds/base/libs/openssl
+          ln -s "$PWD/package/libs/openssl" feeds/base/libs/openssl
+          test -f package/libs/openssl/Config.in
+          test -f feeds/base/libs/openssl/Config.in
+          echo "OpenSSL Config.in: $(readlink -f feeds/base/libs/openssl/Config.in)"
           mkdir -p package/redsocks2
           cp -a "$GITHUB_WORKSPACE/redsocks2/." package/redsocks2/
           mkdir -p feeds/luci/applications/luci-app-redsocks2
