@@ -76,8 +76,12 @@ setup_nft() {
 	# Keep private, link-local, carrier-grade NAT and multicast destinations direct.
 	nft add rule inet "$NFT_TABLE" prerouting iifname "$lan_dev" ip daddr '{ 0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.168.0.0/16, 224.0.0.0/4, 240.0.0.0/4 }' return
 
-	# Optional China-route whitelist: one IPv4 CIDR per line.
-	if [ "$whitelist_enabled" = 1 ] && [ -r "$whitelist_file" ]; then
+	# Require the domestic route file when bypass mode is enabled; fail closed.
+	if [ "$whitelist_enabled" = 1 ]; then
+		if [ ! -r "$whitelist_file" ]; then
+			logger -t redsocks2 "Domestic IPv4 list missing: $whitelist_file; redirect not enabled"
+			return 1
+		fi
 		nft add set inet "$NFT_TABLE" china4 '{ type ipv4_addr; flags interval; auto-merge; }'
 		while IFS= read -r cidr || [ -n "$cidr" ]; do
 			cidr="${cidr%%#*}"
