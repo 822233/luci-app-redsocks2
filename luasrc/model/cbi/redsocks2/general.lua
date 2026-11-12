@@ -44,11 +44,8 @@ s.addremove = false
 o = s:option(Flag, "whitelist_enabled", "启用国内 IPv4 网段直连")
 o.default = "1"
 o.rmempty = false
+o.description = "开启后自动下载并每周更新中国大陆 IPv4 网段列表。国内 IPv4 地址直接连接，无需手动准备或维护网段文件。"
 
-o = s:option(Value, "ipset_whitelist", "国内 IPv4 网段文件")
-o.default = "/etc/chnroute.txt"
-o.description = "每行填写一个 IPv4 网段（CIDR 格式），例如 1.2.3.0/24。命中列表的目标地址直接连接，不经过代理。"
-o:depends({whitelist_enabled="1"})
 
 m.on_after_commit = function(self)
 	luci.sys.call("/etc/init.d/redsocks2 restart >/dev/null 2>&1")
