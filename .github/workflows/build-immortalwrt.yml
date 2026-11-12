@@ -58,6 +58,7 @@ jobs:
           mkdir -p package/feeds/luci
           ln -sfn ../../../feeds/luci/applications/luci-app-redsocks2 package/feeds/luci/luci-app-redsocks2
           test -f package/feeds/luci/luci-app-redsocks2/Makefile
+          make defconfig
           make package/metadata
           printf '\nCONFIG_PACKAGE_libopenssl=y\n# CONFIG_OPENSSL_ENGINE is not set\n# CONFIG_OPENSSL_ENGINE_BUILTIN is not set\n# CONFIG_OPENSSL_ENGINE_BUILTIN_DEVCRYPTO is not set\nCONFIG_PACKAGE_libopenssl-conf=y\nCONFIG_PACKAGE_libevent2=y\nCONFIG_PACKAGE_libevent2-openssl=y\nCONFIG_PACKAGE_redsocks2=m\nCONFIG_PACKAGE_luci-app-redsocks2=m\n' >> .config
           make defconfig
