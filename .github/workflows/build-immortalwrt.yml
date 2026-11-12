@@ -56,7 +56,7 @@ jobs:
           if [ -d "$GITHUB_WORKSPACE/po" ]; then
             cp -a "$GITHUB_WORKSPACE/po" feeds/luci/applications/luci-app-redsocks2/
           fi
-          printf '\nCONFIG_PACKAGE_libopenssl=y\nCONFIG_PACKAGE_libopenssl-conf=y\nCONFIG_PACKAGE_libevent2=y\nCONFIG_PACKAGE_libevent2-openssl=y\nCONFIG_PACKAGE_redsocks2=m\nCONFIG_PACKAGE_luci-app-redsocks2=m\n' >> .config
+          printf '\nCONFIG_PACKAGE_libopenssl=y\n# CONFIG_OPENSSL_ENGINE is not set\n# CONFIG_OPENSSL_ENGINE_BUILTIN is not set\n# CONFIG_OPENSSL_ENGINE_BUILTIN_DEVCRYPTO is not set\nCONFIG_PACKAGE_libopenssl-conf=y\nCONFIG_PACKAGE_libevent2=y\nCONFIG_PACKAGE_libevent2-openssl=y\nCONFIG_PACKAGE_redsocks2=m\nCONFIG_PACKAGE_luci-app-redsocks2=m\n' >> .config
           make defconfig
 
       - name: 编译软件包
