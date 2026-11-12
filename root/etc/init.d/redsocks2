@@ -123,7 +123,7 @@ validate_china_list() {
 		n=split(line, part, "/")
 		if (n > 2 || part[1] !~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/) { bad=1; exit }
 		if (n == 2 && (part[2] !~ /^[0-9]+$/ || part[2] > 32)) { bad=1; exit }
-		o=split(part[1], octet, ".")
+		o=split(part[1], octet, "[.]")
 		for (i=1; i<=4; i++) if (octet[i] > 255) { bad=1; exit }
 		print line
 		count++
