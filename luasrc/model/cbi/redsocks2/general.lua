@@ -1,6 +1,8 @@
 -- Redsocks2 HTTPS CONNECT 配置页面
 -- 防火墙转发规则由配套服务通过 nftables 管理。
 
+local fs = require "nixio.fs"
+
 m = Map("redsocks2", "Redsocks2 - HTTPS 透明代理",
 	"将局域网 IPv4 TCP 流量通过 TLS 加密的 HTTP CONNECT 代理转发；可设置国内 IPv4 网段直连。"
 )
