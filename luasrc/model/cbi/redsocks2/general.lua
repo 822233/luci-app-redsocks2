@@ -1,94 +1,55 @@
 --[[
- Redsocks2 基础配置页面
- Copyright (C) 2015 GuoGuo <gch981213@gmail.com>
+  LuCI configuration for Redsocks2 HTTPS CONNECT.
+  Firewall redirection is managed by the companion init script using nftables.
 ]]--
 
-m = Map("redsocks2", translate("Redsocks2 - General Settings"),
-	translatef("A modified version of redsocks.Beside the basic function of redsocks,it can redirect TCP connections which are blocked via proxy automatically without a blacklist.")
+m = Map("redsocks2", translate("Redsocks2 - HTTPS Proxy"),
+	translate("将局域网 IPv4 TCP 流量通过 TLS 加密的 HTTP CONNECT 代理转发；国内 IPv4 网段可设置为直连。")
 )
 
-s = m:section(TypedSection, "redsocks2_base", translate("Basic Settings"))
-s.anonymous = true
-o = s:option(Flag, "enabled", translate("Enable Redsocks2"))
-
-o = s:option(ListValue, "loglevel", translate("Log Level"))
-o:value("debug", translate("Verbose"))
-o:value("info", translate("Normal"))
-o:value("off", translate("Off"))
-
-s = m:section(TypedSection, "redsocks2_redirect", translate("Redirector Settings"))
+s = m:section(TypedSection, "redsocks2_base", translate("Service"))
 s.anonymous = true
 s.addremove = false
 
-o = s:option(Value, "local_ip", translate("Local IP"))
-o.datatype = "ip4addr"
+o = s:option(Flag, "enabled", translate("Enable HTTPS transparent proxy"))
+o.rmempty = false
 
-o = s:option(Value, "local_port", translate("Local Port"))
-o.datatype = "uinteger"
+o = s:option(ListValue, "loglevel", translate("Log Level"))
+o:value("off", translate("Off"))
+o:value("info", translate("Normal"))
+o:value("debug", translate("Debug"))
+o.default = "info"
 
-o = s:option(Value, "ip", translate("Proxy Server IP"))
--- Accept a hostname or IPv4 address for the HTTPS proxy endpoint.
+s = m:section(TypedSection, "redsocks2_redirect", translate("HTTPS CONNECT Server"))
+s.anonymous = true
+s.addremove = false
 
-o = s:option(Value, "port", translate("Proxy Server Port"))
-o.datatype = "uinteger"
+o = s:option(Value, "ip", translate("Proxy Hostname / IPv4"))
+o.description = translate("例如 fan.571589.xyz")
+o.rmempty = false
 
-o = s:option(ListValue, "proxy_type", translate("Proxy Server Type"))
-o:value("shadowsocks", translate("Shadowsocks"))
-o:value("socks5", translate("Socks5"))
-o:value("http-relay", translate("http-relay"))
-o:value("https-connect", translate("HTTPS CONNECT (TLS)"))
-o:value("direct", translate("Direct"))
+o = s:option(Value, "port", translate("Proxy Port"))
+o.datatype = "port"
+o.default = "443"
+o.rmempty = false
 
-o = s:option(ListValue, "enc_type", translate("Cipher Method"))
-o:depends({proxy_type="shadowsocks"})
-o:value("table")
-o:value("rc4")
-o:value("rc4-md5")
-o:value("aes-128-cfb")
-o:value("aes-192-cfb")
-o:value("aes-256-cfb")
-o:value("bf-cfb")
-o:value("cast5-cfb")
-o:value("des-cfb")
-o:value("camellia-128-cfb")
-o:value("camellia-192-cfb")
-o:value("camellia-256-cfb")
-o:value("idea-cfb")
-o:value("rc2-cfb")
-o:value("seed-cfb")
-
-o = s:option(Value, "username", translate("Username"), translate("Leave empty if your proxy server doesn't need authentication."))
-o:depends({proxy_type="socks5"})
-o:depends({proxy_type="http-relay"})
-o:depends({proxy_type="https-connect"})
+o = s:option(Value, "username", translate("Username"))
+o.description = translate("如果代理不需要认证则留空。")
 
 o = s:option(Value, "password", translate("Password"))
-o:depends({proxy_type="shadowsocks"})
-o:depends({proxy_type="socks5"})
-o:depends({proxy_type="http-relay"})
-o:depends({proxy_type="https-connect"})
 o.password = true
 
-o = s:option(Value, "interface", translate("Outgoing interface"), translate("Outgoing interface for redsocks2."))
-o:depends({proxy_type="direct"})
-
-o = s:option(Flag, "autoproxy", translate("Enable Auto Proxy"))
-o.rmempty = false
-
-o = s:option(Value, "timeout", translate("Timeout"))
-o:depends({autoproxy=1})
-o.datatype = "uinteger"
-
-
-s = m:section(TypedSection, "redsocks2_iptables", translate("Firewall4 / nftables Redirect Settings"))
+s = m:section(TypedSection, "redsocks2_iptables", translate("Domestic Direct Routing"))
 s.anonymous = true
+s.addremove = false
 
-o = s:option(Flag, "whitelist_enabled", translate("国内 IP 直连"), translate("启用后，目标 IP 命中下面的 IPv4 CIDR 列表时直接连接，否则通过 HTTPS 代理。"))
-o.rmempty = false
+o = s:option(Flag, "whitelist_enabled", translate("Bypass proxy for domestic IP ranges"))
 o.default = "1"
+o.rmempty = false
 
-o = s:option(Value, "ipset_whitelist", translate("国内 IPv4 网段文件"))
+o = s:option(Value, "ipset_whitelist", translate("IPv4 CIDR list path"))
 o.default = "/etc/chnroute.txt"
-o:depends({whitelist_enabled=1})
+o.description = translate("每行一个 IPv4 网段，例如 1.2.3.0/24；命中列表的目标地址直连。")
+o:depends({whitelist_enabled="1"})
 
 return m
