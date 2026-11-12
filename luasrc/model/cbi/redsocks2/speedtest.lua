@@ -4,7 +4,7 @@ local sys = require "luci.sys"
 local uci = require "luci.model.uci".cursor()
 
 m = Map("redsocks2", "Redsocks2 - 测速与订阅",
-	"网页测速通过代理真实访问 HTTPS 页面并下载测试文件，不使用 TCP 端口探测。"
+	"网页测速会通过代理实际访问 HTTPS 页面并下载测试文件，不使用 TCP 端口探测。订阅仅导入核心支持的协议。"
 )
 
 local speed = m:section(TypedSection, "redsocks2_base", "网页测速")
@@ -15,7 +15,7 @@ local all = speed:option(Button, "_test_all", "全部节点测速")
 all.inputtitle = "开始全部测速"
 all.inputstyle = "apply"
 all.write = function()
-	sys.call("/bin/sh /usr/bin/redsocks2-speedtest --all >/dev/null 2>&1 &")
+	sys.call("/usr/bin/redsocks2-speedtest --all >/dev/null 2>&1 &")
 end
 
 local ranking = speed:option(DummyValue, "_speed_ranking", "测速速度排名")
@@ -60,21 +60,36 @@ test.inputtitle = "测速此节点"
 test.inputstyle = "apply"
 test.write = function(self, section)
 	if section and section:match("^[%w_]+$") then
-		sys.call("/bin/sh /usr/bin/redsocks2-speedtest " .. section .. " >/dev/null 2>&1 &")
+		sys.call("/usr/bin/redsocks2-speedtest " .. section .. " >/dev/null 2>&1 &")
 	end
 end
 
 local sub = m:section(TypedSection, "redsocks2_subscription", "代理订阅")
-sub.anonymous = true
+sub.anonymous = false
 sub.addremove = true
 sub.template = "cbi/tblsection"
+
+local name = sub:option(Value, "name", "订阅名称")
+name.rmempty = false
 
 local url = sub:option(Value, "url", "订阅地址")
 url.rmempty = false
 url.placeholder = "https://example.com/subscribe"
-url.description = "订阅导入会自动识别 Redsocks2 支持的代理链接格式，并跳过不支持的协议。订阅导入脚本将在协议解析和安全校验完成后启用。"
 
-local name = sub:option(Value, "name", "订阅名称")
-name.rmempty = false
+local update = sub:option(Button, "_update_subscription", "更新订阅")
+update.inputtitle = "立即更新"
+update.inputstyle = "apply"
+update.write = function(self, section)
+	if section and section:match("^[%w_]+$") then
+		sys.call("/usr/bin/redsocks2-subscription " .. section .. " >/tmp/redsocks2-subscription.log 2>&1 &")
+	end
+end
+
+local status = sub:option(DummyValue, "_subscription_status", "最近导入结果")
+status.rawhtml = false
+status.cfgvalue = function(self, section)
+	local data = fs.readfile("/tmp/redsocks2-subscription-" .. section)
+	return data or "尚未更新"
+end
 
 return m
