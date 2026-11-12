@@ -2,6 +2,8 @@
 # Redsocks2 service for OpenWrt firewall4/nftables.
 START=90
 STOP=10
+EXTRA_COMMANDS="migrate"
+EXTRA_HELP="\tmigrate\tMigrate legacy single-node configuration\n"
 
 APP=redsocks2
 PID_FILE=/var/run/${APP}.pid
