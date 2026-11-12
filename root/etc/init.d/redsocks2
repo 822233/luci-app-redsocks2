@@ -79,7 +79,7 @@ setup_nft() {
 	# If the managed list is missing, make one recovery attempt before
 	# creating rules. The updater validates data and preserves any old list.
 	if [ "$whitelist_enabled" = 1 ] && [ ! -s "$whitelist_file" ] && [ -x /usr/bin/redsocks2-update-chnroute ]; then
-		/usr/bin/redsocks2-update-chnroute --quiet || true
+		/usr/bin/redsocks2-update-chnroute --quiet --no-restart || true
 	fi
 
 	# Require a readable, non-empty domestic route file; fail closed.
