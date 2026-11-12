@@ -10,7 +10,7 @@ PKG_NAME:=redsocks2
 PKG_VERSION:=20170730
 PKG_RELEASE:=2
 PKG_REV:=3052eeab75ff1ebd20c22334fbbecd808525bca7
-PKG_BUILD_DEPENDS:=libevent2 libevent2-openssl libopenssl
+PKG_BUILD_DEPENDS:=openssl libevent2
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.bz2
@@ -25,12 +25,12 @@ define Package/redsocks2
   CATEGORY:=Network
   SUBMENU:=Web Servers/Proxies
   DEPENDS:=+libevent2-openssl +libopenssl
-  TITLE:=Redirect TCP connections to SOCKS, HTTP or HTTPS CONNECT proxies
+  TITLE:=Redsocks2 TCP 透明代理核心
 endef
 
 define Package/redsocks2/description
-  Redsocks2 with HTTPS CONNECT (TLS) proxy support enabled.
-  This package only provides TCP proxying.
+  启用 HTTPS CONNECT（TLS）代理支持的 Redsocks2 核心程序。
+  本软件包仅提供 TCP 透明代理，不支持 UDP。
 endef
 
 MAKE_FLAGS += ENABLE_HTTPS_PROXY=true \
