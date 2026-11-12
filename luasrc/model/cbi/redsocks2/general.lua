@@ -1,55 +1,53 @@
---[[
-  LuCI configuration for Redsocks2 HTTPS CONNECT.
-  Firewall redirection is managed by the companion init script using nftables.
-]]--
+-- Redsocks2 HTTPS CONNECT 配置页面
+-- 防火墙转发规则由配套服务通过 nftables 管理。
 
-m = Map("redsocks2", translate("Redsocks2 - HTTPS Proxy"),
-	translate("将局域网 IPv4 TCP 流量通过 TLS 加密的 HTTP CONNECT 代理转发；国内 IPv4 网段可设置为直连。")
+m = Map("redsocks2", "Redsocks2 - HTTPS 透明代理",
+	"将局域网 IPv4 TCP 流量通过 TLS 加密的 HTTP CONNECT 代理转发；可设置国内 IPv4 网段直连。"
 )
 
-s = m:section(TypedSection, "redsocks2_base", translate("Service"))
+s = m:section(TypedSection, "redsocks2_base", "服务设置")
 s.anonymous = true
 s.addremove = false
 
-o = s:option(Flag, "enabled", translate("Enable HTTPS transparent proxy"))
+o = s:option(Flag, "enabled", "启用 HTTPS 透明代理")
 o.rmempty = false
 
-o = s:option(ListValue, "loglevel", translate("Log Level"))
-o:value("off", translate("Off"))
-o:value("info", translate("Normal"))
-o:value("debug", translate("Debug"))
+o = s:option(ListValue, "loglevel", "日志级别")
+o:value("off", "关闭")
+o:value("info", "普通")
+o:value("debug", "调试")
 o.default = "info"
 
-s = m:section(TypedSection, "redsocks2_redirect", translate("HTTPS CONNECT Server"))
+s = m:section(TypedSection, "redsocks2_redirect", "HTTPS 代理服务器")
 s.anonymous = true
 s.addremove = false
 
-o = s:option(Value, "ip", translate("Proxy Hostname / IPv4"))
-o.description = translate("例如 fan.571589.xyz")
+o = s:option(Value, "ip", "代理服务器地址")
+o.description = "填写代理服务器域名或 IPv4 地址，例如 fan.571589.xyz。"
 o.rmempty = false
 
-o = s:option(Value, "port", translate("Proxy Port"))
+o = s:option(Value, "port", "代理服务器端口")
 o.datatype = "port"
 o.default = "443"
 o.rmempty = false
 
-o = s:option(Value, "username", translate("Username"))
-o.description = translate("如果代理不需要认证则留空。")
+o = s:option(Value, "username", "用户名")
+o.description = "代理服务器需要身份验证时填写；不需要验证则留空。"
 
-o = s:option(Value, "password", translate("Password"))
+o = s:option(Value, "password", "密码")
 o.password = true
 
-s = m:section(TypedSection, "redsocks2_iptables", translate("Domestic Direct Routing"))
+s = m:section(TypedSection, "redsocks2_iptables", "国内地址直连")
 s.anonymous = true
 s.addremove = false
 
-o = s:option(Flag, "whitelist_enabled", translate("Bypass proxy for domestic IP ranges"))
+o = s:option(Flag, "whitelist_enabled", "启用国内 IPv4 网段直连")
 o.default = "1"
 o.rmempty = false
 
-o = s:option(Value, "ipset_whitelist", translate("IPv4 CIDR list path"))
+o = s:option(Value, "ipset_whitelist", "国内 IPv4 网段文件")
 o.default = "/etc/chnroute.txt"
-o.description = translate("每行一个 IPv4 网段，例如 1.2.3.0/24；命中列表的目标地址直连。")
+o.description = "每行填写一个 IPv4 网段（CIDR 格式），例如 1.2.3.0/24。命中列表的目标地址直接连接，不经过代理。"
 o:depends({whitelist_enabled="1"})
 
 m.on_after_commit = function(self)
