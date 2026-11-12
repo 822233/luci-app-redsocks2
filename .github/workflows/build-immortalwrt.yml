@@ -42,7 +42,6 @@ jobs:
           mkdir -p package/libs/libevent2
           cp "$GITHUB_WORKSPACE/sdk/libevent2/Makefile" package/libs/libevent2/Makefile
           ./scripts/feeds update packages luci
-          ./scripts/feeds install -p packages openssl
           ./scripts/feeds install -p packages libevent2
           ./scripts/feeds install -p luci luci-base
           mkdir -p package/redsocks2
@@ -60,7 +59,8 @@ jobs:
       - name: 编译软件包
         working-directory: ${{ runner.temp }}/sdk
         run: |
-          make package/feeds/packages/openssl/compile -j2 V=s
+          # OpenSSL 由 ImmortalWrt SDK 预置在 staging_dir 中，无需也无法在 SDK 内重新编译
+          test -f staging_dir/target-aarch64_cortex-a53_musl/usr/include/openssl/ssl.h
           make package/libs/libevent2/compile -j2 V=s
           make package/redsocks2/compile -j2 V=s
           make package/luci-app-redsocks2/compile -j2 V=s
