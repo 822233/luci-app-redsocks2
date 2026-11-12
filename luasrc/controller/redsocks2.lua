@@ -14,7 +14,11 @@ function index()
 		cbi("redsocks2/general"),
 		"基本设置", 10).leaf = true
 
+	entry({"admin", "services", "redsocks2", "speedtest"},
+		cbi("redsocks2/speedtest"),
+		"测速与订阅", 20).leaf = true
+
 	entry({"admin", "services", "redsocks2", "advanced"},
 		cbi("redsocks2/advanced"),
-		"高级设置", 20).leaf = true
+		"高级设置", 30).leaf = true
 end
