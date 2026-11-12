@@ -1,0 +1,135 @@
+#!/bin/sh
+# Import subscription URIs supported by the bundled Redsocks2 core.
+. /lib/functions.sh
+
+SUB="$1"
+case "$SUB" in ""|*[!A-Za-z0-9_]*) echo "订阅编号无效"; exit 1;; esac
+
+TMP="$(mktemp -d /tmp/redsocks2-sub.XXXXXX)" || exit 1
+trap 'rm -rf "$TMP"' EXIT INT TERM
+RAW="$TMP/raw"
+LIST="$TMP/list"
+PARSED="$TMP/parsed"
+: > "$PARSED"
+
+config_load redsocks2
+config_get URL "$SUB" url
+config_get SUBNAME "$SUB" name "$SUB"
+[ -n "$URL" ] || { echo "订阅地址为空"; exit 1; }
+
+# URL is passed as a quoted argument; it is never evaluated as shell code.
+if command -v curl >/dev/null 2>&1; then
+	curl -fsSL --connect-timeout 15 --max-time 90 --retry 1 -- "$URL" -o "$RAW" || {
+		echo "订阅下载失败"; exit 1;
+	}
+elif command -v uclient-fetch >/dev/null 2>&1; then
+	uclient-fetch -q -T 90 -O "$RAW" "$URL" || { echo "订阅下载失败"; exit 1; }
+else
+	echo "缺少 curl 或 uclient-fetch"; exit 1
+fi
+
+# Many providers return a Base64-encoded URI list.
+if ! grep -q '://' "$RAW"; then
+	tr -d '\r\n ' < "$RAW" | tr '_-' '/+' | base64 -d > "$LIST" 2>/dev/null || {
+		echo "订阅内容既不是 URI 列表，也不是有效 Base64"; exit 1;
+	}
+else
+	cp "$RAW" "$LIST"
+fi
+
+decode_ss() {
+	printf '%s' "$1" | tr '_-' '/+' | base64 -d 2>/dev/null
+}
+
+count=0
+skipped=0
+while IFS= read -r line || [ -n "$line" ]; do
+	line="$(printf '%s' "$line" | tr -d '\r')"
+	case "$line" in ""|\#*|;*) continue;; esac
+	fragment=""
+	case "$line" in *\#*) fragment="${line#*#}"; line="${line%%#*}";; esac
+	proto=""
+	auth=""
+	endpoint=""
+	host=""
+	port=""
+	user=""
+	pass=""
+	method=""
+	case "$line" in
+		https://*) proto="https-connect"; rest="${line#https://}";;
+		http://*) proto="http-connect"; rest="${line#http://}";;
+		socks4://*) proto="socks4"; rest="${line#socks4://}";;
+		socks5://*) proto="socks5"; rest="${line#socks5://}";;
+		ss://)
+			skipped=$((skipped+1)); continue;;
+		ss://*)
+			proto="shadowsocks"; rest="${line#ss://}"
+			# SIP002: base64(method:password)@host:port or method:password@host:port.
+			case "$rest" in
+				*@*) auth="${rest%%@*}"; endpoint="${rest#*@}";;
+				*) decoded="$(decode_ss "$rest")"
+				   case "$decoded" in *@*) auth="${decoded%%@*}"; endpoint="${decoded#*@}";; *) skipped=$((skipped+1)); continue;; esac;;
+			esac
+			case "$auth" in *:*) method="${auth%%:*}"; pass="${auth#*:}";; *) decoded="$(decode_ss "$auth")"; method="${decoded%%:*}"; pass="${decoded#*:}";; esac
+			;;
+		*) skipped=$((skipped+1)); continue;;
+	esac
+	if [ "$proto" != "shadowsocks" ]; then
+		case "$rest" in *@*) auth="${rest%%@*}"; endpoint="${rest#*@}";; *) endpoint="$rest";; esac
+		case "$auth" in *:*) user="${auth%%:*}"; pass="${auth#*:}";; *) user="$auth";; esac
+	fi
+	# IPv4/domain endpoints only for now; bracketed IPv6 is explicitly rejected.
+	case "$endpoint" in *:*) host="${endpoint%:*}"; port="${endpoint##*:}";; *) skipped=$((skipped+1)); continue;; esac
+	case "$host" in ""|*\[*|*\]*|*[!A-Za-z0-9._-]*) skipped=$((skipped+1)); continue;; esac
+	case "$port" in ""|*[!0-9]*) skipped=$((skipped+1)); continue;; esac
+	[ "$port" -ge 1 ] 2>/dev/null && [ "$port" -le 65535 ] 2>/dev/null || { skipped=$((skipped+1)); continue; }
+	case "$user$pass$method" in *'|'*|*'
+'*|*'\''*) skipped=$((skipped+1)); continue;; esac
+	if [ "$proto" = "shadowsocks" ]; then
+		[ -n "$method" ] && [ -n "$pass" ] || { skipped=$((skipped+1)); continue; }
+		user="$method"
+	fi
+	name="$fragment"
+	[ -n "$name" ] || name="$host:$port"
+	# Keep the importer output delimiter-safe and bounded.
+	name="$(printf '%s' "$name" | tr -cd 'A-Za-z0-9._ -' | cut -c1-48)"
+	[ -n "$name" ] || name="$host:$port"
+	printf '%s|%s|%s|%s|%s|%s\n' "$proto" "$host" "$port" "$user" "$pass" "$name" >> "$PARSED"
+	count=$((count+1))
+done < "$LIST"
+
+[ "$count" -gt 0 ] || { echo "没有找到可导入的支持协议节点（跳过 $skipped 条）"; exit 1; }
+
+# Only replace nodes belonging to this subscription after at least one valid
+# node has been parsed; manually created nodes are untouched.
+config_foreach remove_old_node redsocks2_node
+remove_old_node() {
+	local section="$1" source=""
+	config_get source "$section" subscription_id
+	[ "$source" = "$SUB" ] && uci -q delete "redsocks2.$section"
+}
+# config_foreach above must see a defined callback; run deletion in a fresh pass.
+uci commit redsocks2
+while IFS='|' read -r proto host port user pass name; do
+	section="$(uci add redsocks2 redsocks2_node)"
+	[ -n "$section" ] || continue
+	uci set "redsocks2.$section.name=$name"
+	uci set "redsocks2.$section.proxy_type=$proto"
+	uci set "redsocks2.$section.ip=$host"
+	uci set "redsocks2.$section.port=$port"
+	uci set "redsocks2.$section.username=$user"
+	uci set "redsocks2.$section.password=$pass"
+	uci set "redsocks2.$section.subscription_id=$SUB"
+done < "$PARSED"
+
+# Point active_node at the first imported node only if the old active node
+# was removed or no active node exists.
+active="$(uci -q get redsocks2.@redsocks2_base[0].active_node)"
+if [ -z "$active" ] || ! uci -q get "redsocks2.$active" >/dev/null 2>&1; then
+	first="$(uci -q show redsocks2 | sed -n 's/^redsocks2\.\([^.=]*\)=redsocks2_node$/\1/p' | tail -n 1)"
+	[ -n "$first" ] && uci set "redsocks2.@redsocks2_base[0].active_node=$first"
+fi
+uci commit redsocks2
+printf '导入成功：%s 个支持节点；跳过 %s 条不支持或格式错误的记录。\n' "$count" "$skipped" > "/tmp/redsocks2-subscription-$SUB"
+echo "导入完成：$count 个节点，跳过 $skipped 条"
