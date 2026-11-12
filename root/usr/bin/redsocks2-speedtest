@@ -41,7 +41,7 @@ config_load redsocks2
 
 run_curl() {
 	if [ -n "$username" ]; then
-		curl --silent --show-error --proxy "$proxy_url" --proxy-insecure --noproxy "" --proxy-user "$username:$password" "$@"
+		curl --silent --show-error --location --proxy "$proxy_url" --proxy-insecure --noproxy "" --proxy-user "$username:$password" "$@"
 	else
 		curl --silent --show-error --proxy "$proxy_url" --proxy-insecure --noproxy "" "$@"
 	fi
