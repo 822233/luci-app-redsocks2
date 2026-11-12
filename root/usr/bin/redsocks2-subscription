@@ -98,20 +98,9 @@ while IFS= read -r line || [ -n "$line" ]; do
 		user="$(decode_uri_component "$user")" || { skipped=$((skipped+1)); continue; }
 		pass="$(decode_uri_component "$pass")" || { skipped=$((skipped+1)); continue; }
 	fi
-	# IPv4/domain endpoints only for now; bracketed IPv6 is explicitly rejected.
-	case "$endpoint" in
-		\[*\]:*)
-			host="\${endpoint#\[}"; host="\${host%%\]*}"
-			port="\${endpoint##*\]:}"
-			case "$host" in ""|*[!A-Fa-f0-9:.%]*) skipped=$((skipped+1)); continue;; esac
-			;;
-		*:*)
-			host="\${endpoint%:*}"; port="\${endpoint##*:}"
-			case "$host" in *:*) skipped=$((skipped+1)); continue;; esac
-			case "$host" in ""|*[!A-Za-z0-9._-]*) skipped=$((skipped+1)); continue;; esac
-			;;
-		*) skipped=$((skipped+1)); continue;;
-	esac
+	# IPv4/domain endpoints only; the current core's IPv6 support is not verified.
+	case "$endpoint" in *:*) host="${endpoint%:*}"; port="${endpoint##*:}";; *) skipped=$((skipped+1)); continue;; esac
+	case "$host" in ""|*\[*|*\]*|*[!A-Za-z0-9._-]*) skipped=$((skipped+1)); continue;; esac
 	case "$port" in ""|*[!0-9]*) skipped=$((skipped+1)); continue;; esac
 	[ "$port" -ge 1 ] 2>/dev/null && [ "$port" -le 65535 ] 2>/dev/null || { skipped=$((skipped+1)); continue; }
 	case "$user$pass$method" in *'|'*|*'
@@ -133,15 +122,22 @@ while IFS= read -r line || [ -n "$line" ]; do
 	count=$((count+1))
 done < "$LIST"
 
+# Remove exact duplicate imported entries while preserving their original order.
+awk '!seen[$0]++' "$PARSED" > "$TMP/unique"
+mv "$TMP/unique" "$PARSED"
+count="$(wc -l < "$PARSED" | tr -d ' ')"
+
 [ "$count" -gt 0 ] || { echo "没有找到可导入的支持协议节点（跳过 $skipped 条）"; exit 1; }
 
 # Only replace nodes belonging to this subscription after at least one valid
 # node has been parsed; manually created nodes are untouched.
 config_foreach remove_old_node redsocks2_node
 uci commit redsocks2
+first_imported=""
 while IFS='|' read -r proto host port user pass name; do
 	section="$(uci add redsocks2 redsocks2_node)"
 	[ -n "$section" ] || continue
+	[ -n "$first_imported" ] || first_imported="$section"
 	uci set "redsocks2.$section.name=$name"
 	uci set "redsocks2.$section.proxy_type=$proto"
 	uci set "redsocks2.$section.ip=$host"
@@ -151,17 +147,11 @@ while IFS='|' read -r proto host port user pass name; do
 	uci set "redsocks2.$section.subscription_id=$SUB"
 done < "$PARSED"
 
-# Remove exact duplicate imported entries while preserving their original order.
-awk '!seen[$0]++' "$PARSED" > "$TMP/unique"
-mv "$TMP/unique" "$PARSED"
-count="$(wc -l < "$PARSED" | tr -d ' ')"
-
 # Point active_node at the first imported node only if the old active node
 # was removed or no active node exists.
 active="$(uci -q get redsocks2.@redsocks2_base[0].active_node)"
 if [ -z "$active" ] || ! uci -q get "redsocks2.$active" >/dev/null 2>&1; then
-	first="$(uci -q show redsocks2 | sed -n 's/^redsocks2\.\([^.=]*\)=redsocks2_node$/\1/p' | head -n 1)"
-	[ -n "$first" ] && uci set "redsocks2.@redsocks2_base[0].active_node=$first"
+	[ -n "$first_imported" ] && uci set "redsocks2.@redsocks2_base[0].active_node=$first_imported"
 fi
 uci commit redsocks2
 printf '导入成功：%s 个支持节点；跳过 %s 条不支持或格式错误的记录。\n' "$count" "$skipped" > "/tmp/redsocks2-subscription-$SUB"
