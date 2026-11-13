@@ -20,6 +20,9 @@ migrate_legacy_node() {
 	[ -n "$node" ] || return 1
 	config_get proxy_type "$cfg" proxy_type https-connect
 	config_get username "$cfg" username
+	if [ "$proxy_type" = "shadowsocks" ]; then
+		config_get username "$cfg" method "$username"
+	fi
 	config_get password "$cfg" password
 	config_get local_ip "$cfg" local_ip 0.0.0.0
 	config_get local_port "$cfg" local_port 11111
