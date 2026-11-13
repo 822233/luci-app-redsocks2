@@ -225,8 +225,7 @@ done < "$PARSED"
 # so the previous subscription remains intact.
 if [ -z "$first_imported" ]; then
 	if [ "$MODE" = "manual" ] && [ "$duplicates" -gt 0 ]; then
-		uci revert redsocks2
-		echo "节点均已存在，未重复添加（重复 $duplicates 条）"
+		echo "节点均已存在，未重复添加（重复 $duplicates 条，跳过不支持或格式错误 $skipped 条）"
 		exit 0
 	fi
 	uci revert redsocks2
