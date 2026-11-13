@@ -5,18 +5,11 @@
 MODE="subscription"
 SUB=""
 MANUAL_FILE=""
-URL=""
-NEW_SUB=0
 if [ "$1" = "--file" ]; then
 	MODE="manual"
 	MANUAL_FILE="$2"
 	[ "$MANUAL_FILE" = "/tmp/redsocks2-import.txt" ] || { echo "导入文件路径无效"; exit 1; }
 	[ -s "$MANUAL_FILE" ] || { echo "导入内容为空"; exit 1; }
-elif [ "$1" = "--add-url" ]; then
-	MODE="add"
-	URL="$2"
-	case "$URL" in http://*|https://*) ;; *) echo "订阅链接必须使用 HTTP 或 HTTPS"; exit 1;; esac
-	case "$URL" in *[[:space:]]*|"") echo "订阅链接格式无效"; exit 1;; esac
 else
 	SUB="$1"
 	case "$SUB" in ""|*[!A-Za-z0-9_]*) echo "订阅编号无效"; exit 1;; esac
@@ -37,14 +30,12 @@ config_load redsocks2
 if [ "$MODE" = "manual" ]; then
 	cp "$MANUAL_FILE" "$LIST" || { echo "读取导入内容失败"; exit 1; }
 else
-	if [ "$MODE" != "add" ]; then
-		config_get URL "$SUB" url
-	fi
+	config_get URL "$SUB" url
 	[ -n "$URL" ] || { echo "订阅地址为空"; exit 1; }
 
 	# URL is passed as a quoted argument; it is never evaluated as shell code.
 	if command -v curl >/dev/null 2>&1; then
-		curl -fsSL --connect-timeout 15 --max-time 90 --retry 1 -- "$URL" -o "$RAW" || {
+		curl -fsSL --connect-timeout 15 --max-time 90 --retry 1 -o "$RAW" -- "$URL" || {
 			echo "订阅下载失败"; exit 1;
 		}
 	elif command -v uclient-fetch >/dev/null 2>&1; then
@@ -78,39 +69,6 @@ decode_uri_component() {
 		*) printf '%s' "$1" ;;
 	esac
 }
-
-# Create a subscription entry from the pasted URL, reusing an exact URL match.
-if [ "$MODE" = "add" ]; then
-	find_existing_subscription() {
-		local existing_url=""
-		config_get existing_url "$1" url
-		if [ "$existing_url" = "$URL" ]; then SUB="$1"; fi
-	}
-	config_foreach find_existing_subscription redsocks2_subscription
-	if [ -n "$SUB" ]; then
-		MODE="subscription"
-	else
-		SUB="$(uci add redsocks2 redsocks2_subscription)"
-		[ -n "$SUB" ] || { echo "无法创建订阅配置"; exit 1; }
-		NEW_SUB=1
-		case "$URL" in
-			*\#*) auto_name="$(decode_uri_component "${URL#*\#}" 2>/dev/null)" || auto_name="";;
-		esac
-		if [ -z "$auto_name" ]; then
-			host_part="${URL#*://}"
-			host_part="${host_part%%/*}"
-			host_part="${host_part%%\?*}"
-			host_part="${host_part%%\#*}"
-			host_part="${host_part##*@}"
-			host_part="${host_part%%:*}"
-			auto_name="${host_part#www.}"
-		fi
-		[ -n "$auto_name" ] || auto_name="新订阅"
-		auto_name="$(printf '%s' "$auto_name" | tr -d '|[:cntrl:]' | cut -c1-96)"
-		uci set "redsocks2.$SUB.name=$auto_name"
-		uci set "redsocks2.$SUB.url=$URL"
-	fi
-fi
 
 decode_ss() {
 	local encoded
