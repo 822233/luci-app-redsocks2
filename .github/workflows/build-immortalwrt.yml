@@ -106,10 +106,27 @@ jobs:
             matches=("$GITHUB_WORKSPACE"/dist/"$expected"_*.ipk)
             test "${#matches[@]}" -eq 1
             ipk="${matches[0]}"
-            members="$(ar t "$ipk")"
-            control_member="$(printf '%s\n' "$members" | grep -m1 '^control\.tar')"
+            # OpenWrt 24.10 ipkg-build emits a gzip-compressed tar archive,
+            # not a Debian ar archive.
+            members="$(tar -tzf "$ipk")"
+            control_member="$(printf '%s\n' "$members" | grep -m1 -E '(^|/)control\.tar\.gz
+            printf '%s\n' "$control" | grep -Fx "Package: $expected"
+            printf '%s\n' "$control" | grep -Eq '^Version: [^[:space:]]+'
+            printf '%s\n' "$control" | grep -Eq '^Architecture: [^[:space:]]+'
+            echo "Verified $ipk"
+            printf '%s\n' "$control"
+          done
+          sha256sum "${ipks[@]}"
+
+      - name: 上传编译产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: redsocks2-immortalwrt-mediatek-filogic
+          path: dist/*.ipk
+          if-no-files-found: error
+)"
             test -n "$control_member"
-            control="$(ar p "$ipk" "$control_member" | tar -xzOf - ./control)"
+            control="$(tar -xzOf "$ipk" "$control_member" | tar -xzOf - ./control)"
             printf '%s\n' "$control" | grep -Fx "Package: $expected"
             printf '%s\n' "$control" | grep -Eq '^Version: [^[:space:]]+'
             printf '%s\n' "$control" | grep -Eq '^Architecture: [^[:space:]]+'
