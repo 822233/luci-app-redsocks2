@@ -19,3 +19,5 @@ include $(TOPDIR)/feeds/luci/luci.mk
 define Package/luci-app-redsocks2/conffiles
 /etc/config/redsocks2
 endef
+
+# call BuildPackage - OpenWrt buildroot signature
