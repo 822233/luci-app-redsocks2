@@ -13,6 +13,7 @@ function index()
 	entry({"admin", "services", "redsocks2", "general"},
 		view("redsocks2/general"),
 		"基本设置", 10).leaf = true
+	entry({"admin", "services", "redsocks2", "general"}).acl_depends = { "luci-app-redsocks2" }
 
 	entry({"admin", "services", "redsocks2", "speedtest"},
 		cbi("redsocks2/speedtest"),
