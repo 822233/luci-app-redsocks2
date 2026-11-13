@@ -10,10 +10,11 @@ function index()
 		alias("admin", "services", "redsocks2", "general"),
 		"Redsocks2")
 
-	entry({"admin", "services", "redsocks2", "general"},
+	local general = entry({"admin", "services", "redsocks2", "general"},
 		view("redsocks2/general"),
-		"基本设置", 10).leaf = true
-	entry({"admin", "services", "redsocks2", "general"}).acl_depends = { "luci-app-redsocks2" }
+		"基本设置", 10)
+	general.leaf = true
+	general.acl_depends = { "luci-app-redsocks2" }
 
 	entry({"admin", "services", "redsocks2", "speedtest"},
 		cbi("redsocks2/speedtest"),
