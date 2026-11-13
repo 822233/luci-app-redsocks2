@@ -15,7 +15,10 @@ const PROXY_TYPES = {
 
 return view.extend({
 	load: function() {
-		return uci.load('redsocks2');
+		return fs.exec('/etc/init.d/redsocks2', [ 'migrate' ])
+			.then(function() {
+				return uci.load('redsocks2');
+			});
 	},
 
 	render: function() {
@@ -43,7 +46,7 @@ return view.extend({
 		});
 		o.placeholder = _('请选择节点');
 		o.default = nodeList.length ? nodeList[0]['.name'] : '';
-		o.rmempty = true;
+		o.rmempty = false;
 
 		const nodes = m.section(form.GridSection, 'redsocks2_node', _('代理节点'));
 		nodes.anonymous = true;
