@@ -113,17 +113,16 @@ return view.extend({
 		o.rmempty = false;
 		o.description = _('自动下载并每周更新中国大陆 IPv4 网段列表。');
 
-		return m.render().then(function(root) {
-			const addArea = root.querySelector('#cbi-redsocks2-redsocks2_node .cbi-section-create');
-			if (addArea) {
-				addArea.appendChild(document.createTextNode(' '));
-				addArea.appendChild(E('button', {
+		nodes.footer = function() {
+			return E('tr', {}, E('td', { 'colspan': 100 }, [
+				E('button', {
 					'class': 'cbi-button cbi-button-action',
 					'click': ui.createHandlerFn(this, 'showImportModal')
-				}, [ _('导入分享链接') ]));
-			}
-			return root;
-		}.bind(this));
+				}, [ _('导入分享链接') ])
+			]));
+		}.bind(this);
+
+		return m.render();
 	},
 
 	handleSave: function(ev) {
