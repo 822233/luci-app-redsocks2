@@ -28,13 +28,41 @@ add_subscription.inputtitle = "添加订阅"
 add_subscription.inputstyle = "add"
 add_subscription.write = function(self, section)
 	local subscription_url = new_url:formvalue(section)
-	if not subscription_url or subscription_url == "" then
+	if not subscription_url or not subscription_url:match("^https?://[^%s]+$") then
 		return
 	end
-	local command = "/usr/bin/redsocks2-subscription --add-url " ..
-		util.shellquote(subscription_url) ..
-		" >/tmp/redsocks2-subscription-add.log 2>&1 &"
-	sys.call(command)
+
+	local subscription_id
+	uci:foreach("redsocks2", "redsocks2_subscription", function(entry)
+		if entry.url == subscription_url then
+			subscription_id = entry[".name"]
+		end
+	end)
+
+	if not subscription_id then
+		local fragment = subscription_url:match("#([^#]*)$")
+		local host = subscription_url:match("^https?://([^/%?#]+)")
+		if host then
+			host = host:gsub("^.-@", ""):gsub(":%d+$", ""):gsub("^www%.", "")
+		end
+		local name = (fragment and util.urldecode(fragment)) or host or "新订阅"
+		name = name:gsub("[|%c]", ""):sub(1, 96)
+		if name == "" then name = "新订阅" end
+
+		subscription_id = uci:section("redsocks2", "redsocks2_subscription", nil, {
+			name = name,
+			url = subscription_url
+		})
+		if not subscription_id then
+			return
+		end
+		uci:save("redsocks2")
+		uci:commit("redsocks2")
+	end
+
+	-- Persist the subscription first so the background importer can resolve it by ID.
+	sys.call("/usr/bin/redsocks2-subscription " .. util.shellquote(subscription_id) ..
+		" >/tmp/redsocks2-subscription-add.log 2>&1 &")
 end
 
 local target = speed:option(ListValue, "test_target", "网页测速地址")
