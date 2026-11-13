@@ -91,6 +91,7 @@ jobs:
       - name: LuCI JavaScript 语法检查
         run: |
           node --check "$GITHUB_WORKSPACE/htdocs/luci-static/resources/view/redsocks2/general.js"
+          python3 -m json.tool "$GITHUB_WORKSPACE/root/usr/share/rpcd/acl.d/luci-app-redsocks2.json" >/dev/null
 
       - name: 编译软件包
         working-directory: ${{ runner.temp }}/sdk
@@ -121,7 +122,7 @@ jobs:
             printf '%s\n' "$control" | grep -Eq '^Version: [^[:space:]]+'
             printf '%s\n' "$control" | grep -Eq '^Architecture: [^[:space:]]+'
             if [ "$expected" = "luci-app-redsocks2" ]; then
-              printf '%s\n' "$control" | grep -Fx 'Version: 1.0.3-r2'
+              printf '%s\n' "$control" | grep -Fx 'Version: 1.0.3-r3'
               data_member="$(printf '%s\n' "$members" | grep -m1 -E '(^|/)data.tar.gz$')"
               test -n "$data_member"
               data_members="$(tar -xzOf "$ipk" "$data_member" | tar -tzf -)"
