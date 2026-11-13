@@ -1,6 +1,10 @@
 Redsocks2 LuCI 1.0.3
 ====================
 
+- Separate ordinary proxy usernames from the Shadowsocks cipher selector; only supported ciphers are selectable.
+- Add subscriptions directly from a pasted URL, auto-name from its URL fragment or hostname, and reuse duplicate URLs.
+
+
 - Add selectable webpage connectivity targets and a custom HTTP/HTTPS URL.
 - Measure webpage time to first byte separately from full download throughput.
 - Verify HTTPS proxy certificates instead of disabling certificate checks.
