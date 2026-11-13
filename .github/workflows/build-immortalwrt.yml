@@ -65,10 +65,14 @@ jobs:
           cp "$GITHUB_WORKSPACE/Makefile" package/luci-app-redsocks2/
           cp -a "$GITHUB_WORKSPACE/luasrc" package/luci-app-redsocks2/
           cp -a "$GITHUB_WORKSPACE/root" package/luci-app-redsocks2/
+          if [ -d "$GITHUB_WORKSPACE/htdocs" ]; then
+            cp -a "$GITHUB_WORKSPACE/htdocs" package/luci-app-redsocks2/
+          fi
           if [ -d "$GITHUB_WORKSPACE/po" ]; then
             cp -a "$GITHUB_WORKSPACE/po" package/luci-app-redsocks2/
           fi
           test -f package/luci-app-redsocks2/Makefile
+          test -f package/luci-app-redsocks2/htdocs/luci-static/resources/view/redsocks2/general.js
           test -f feeds/luci/luci.mk
           make defconfig
           # SDKs do not provide the full-source-tree package/metadata target.
