@@ -108,7 +108,7 @@ return view.extend({
 		});
 		o.description = _('HTTP/HTTPS CONNECT 和 SOCKS 节点的认证用户名。');
 
-		o = nodes.taboption('basic', form.ListValue, 'username', _('Shadowsocks 加密方法'));
+		o = nodes.taboption('basic', form.ListValue, 'method', _('Shadowsocks 加密方法'));
 		[
 			'table', 'rc4', 'rc4-md5', 'aes-128-cfb', 'aes-192-cfb',
 			'aes-256-cfb', 'bf-cfb', 'camellia-128-cfb', 'camellia-192-cfb',
@@ -120,6 +120,14 @@ return view.extend({
 		o.default = 'aes-256-cfb';
 		o.rmempty = false;
 		o.depends('proxy_type', 'shadowsocks');
+		o.cfgvalue = function(section_id) {
+			return uci.get('redsocks2', section_id, 'method') ||
+				uci.get('redsocks2', section_id, 'username') || 'aes-256-cfb';
+		};
+		o.write = function(section_id, value) {
+			uci.set('redsocks2', section_id, 'method', value);
+			uci.unset('redsocks2', section_id, 'username');
+		};
 		o.description = _('仅显示 Shadowsocks 支持的加密方法，不能手动输入。');
 
 		o = nodes.taboption('basic', form.Value, 'password', _('密码'));
