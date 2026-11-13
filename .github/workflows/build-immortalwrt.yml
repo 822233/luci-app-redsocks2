@@ -111,8 +111,8 @@ jobs:
           test "${#ipks[@]}" -eq 2
           for expected in redsocks2 luci-app-redsocks2; do
             matches=("$GITHUB_WORKSPACE"/dist/"$expected"_*.ipk)
-            test "\${#matches[@]}" -eq 1
-            ipk="\${matches[0]}"
+            test "${#matches[@]}" -eq 1
+            ipk="${matches[0]}"
             members="$(tar -tzf "$ipk")"
             control_member="$(printf '%s\n' "$members" | grep -m1 -E '(^|/)control.tar.gz$')"
             test -n "$control_member"
@@ -131,7 +131,7 @@ jobs:
             echo "Verified $ipk"
             printf '%s\n' "$control"
           done
-          sha256sum "\${ipks[@]}"
+          sha256sum "${ipks[@]}"
 
       - name: 上传编译产物
         uses: actions/upload-artifact@v4
