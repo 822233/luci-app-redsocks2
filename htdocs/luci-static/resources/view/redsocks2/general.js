@@ -99,9 +99,28 @@ return view.extend({
 		o.default = '443';
 		o.rmempty = false;
 
-		o = nodes.taboption('basic', form.Value, 'username', _('用户名 / Shadowsocks 加密方法'));
+		// Ordinary proxy protocols use a username; Shadowsocks uses a cipher.
+		// Both are stored in the existing "username" UCI option for core compatibility.
+		o = nodes.taboption('basic', form.Value, 'username', _('用户名'));
 		o.rmempty = true;
-		o.description = _('Shadowsocks 节点填写加密方法，例如 aes-256-cfb。');
+		[ 'https-connect', 'http-connect', 'socks4', 'socks5' ].forEach(function(type) {
+			o.depends('proxy_type', type);
+		});
+		o.description = _('HTTP/HTTPS CONNECT 和 SOCKS 节点的认证用户名。');
+
+		o = nodes.taboption('basic', form.ListValue, 'username', _('Shadowsocks 加密方法'));
+		[
+			'table', 'rc4', 'rc4-md5', 'aes-128-cfb', 'aes-192-cfb',
+			'aes-256-cfb', 'bf-cfb', 'camellia-128-cfb', 'camellia-192-cfb',
+			'camellia-256-cfb', 'cast5-cfb', 'des-cfb', 'idea-cfb',
+			'rc2-cfb', 'seed-cfb'
+		].forEach(function(cipher) {
+			o.value(cipher, cipher);
+		});
+		o.default = 'aes-256-cfb';
+		o.rmempty = false;
+		o.depends('proxy_type', 'shadowsocks');
+		o.description = _('仅显示 Shadowsocks 支持的加密方法，不能手动输入。');
 
 		o = nodes.taboption('basic', form.Value, 'password', _('密码'));
 		o.password = true;
