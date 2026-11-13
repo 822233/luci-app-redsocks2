@@ -1,7 +1,7 @@
 Redsocks2 LuCI 1.0.3
 ====================
 
-- Separate ordinary proxy usernames from the Shadowsocks cipher selector using an independent UCI option; migrate legacy cipher values transparently and keep the service core compatible.
+- Separate ordinary proxy usernames from the Shadowsocks cipher selector using an independent UCI option; migrate legacy cipher values transparently and map the value to the Redsocks2 core's login field.
 - Add subscriptions directly from a pasted URL, persist them before background import, auto-name from the URL fragment or hostname, and reuse duplicate URLs.
 
 
