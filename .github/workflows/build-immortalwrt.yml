@@ -84,6 +84,10 @@ jobs:
           sh -n "$GITHUB_WORKSPACE/root/usr/bin/redsocks2-subscription"
           sh -n "$GITHUB_WORKSPACE/root/usr/bin/redsocks2-update-chnroute"
 
+      - name: LuCI JavaScript 语法检查
+        run: |
+          node --check "$GITHUB_WORKSPACE/htdocs/luci-static/resources/view/redsocks2/general.js"
+
       - name: 编译软件包
         working-directory: ${{ runner.temp }}/sdk
         run: |
