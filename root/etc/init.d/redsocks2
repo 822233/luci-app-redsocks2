@@ -79,7 +79,7 @@ base {
 EOF
 }
 gen_redirect() {
-	local cfg="$1" local_ip local_port proxy_host proxy_port proxy_type username password autoproxy timeout
+	local cfg="$1" local_ip local_port proxy_host proxy_port proxy_type username method password autoproxy timeout
 	config_get local_ip "$cfg" local_ip 0.0.0.0
 	config_get local_port "$cfg" local_port 11111
 	REDSOCKS2_LOCAL_PORT="$local_port"
@@ -87,6 +87,10 @@ gen_redirect() {
 	config_get proxy_port "$cfg" port
 	config_get proxy_type "$cfg" proxy_type https-connect
 	config_get username "$cfg" username
+	if [ "$proxy_type" = "shadowsocks" ]; then
+		config_get method "$cfg" method "$username"
+		username="$method"
+	fi
 	config_get password "$cfg" password
 	config_get_bool autoproxy "$cfg" autoproxy 0
 	config_get timeout "$cfg" timeout 3
