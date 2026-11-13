@@ -120,6 +120,47 @@ jobs:
             printf '%s\n' "$control" | grep -Fx "Package: $expected"
             printf '%s\n' "$control" | grep -Eq '^Version: [^[:space:]]+'
             printf '%s\n' "$control" | grep -Eq '^Architecture: [^[:space:]]+'
+            if [ "$expected" = "luci-app-redsocks2" ]; then
+              printf '%s\n' "$control" | grep -Fx 'Version: 1.0.3-r2'
+              data_member="$(printf '%s\n' "$members" | grep -m1 -E '(^|/)data.tar.gz
+            printf '%s\n' "$control"
+          done
+          sha256sum "${ipks[@]}"
+
+      - name: 上传编译产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: redsocks2-immortalwrt-mediatek-filogic
+          path: dist/*.ipk
+          if-no-files-found: error
+)"
+              test -n "$data_member"
+              data_members="$(tar -xzOf "$ipk" "$data_member" | tar -tzf -)"
+              printf '%s\n' "$data_members" | grep -Eq '(^|/)www/luci-static/resources/view/redsocks2/general\.js
+            printf '%s\n' "$control"
+          done
+          sha256sum "${ipks[@]}"
+
+      - name: 上传编译产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: redsocks2-immortalwrt-mediatek-filogic
+          path: dist/*.ipk
+          if-no-files-found: error
+
+              printf '%s\n' "$data_members" | grep -Eq '(^|/)usr/bin/redsocks2-subscription
+            printf '%s\n' "$control"
+          done
+          sha256sum "${ipks[@]}"
+
+      - name: 上传编译产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: redsocks2-immortalwrt-mediatek-filogic
+          path: dist/*.ipk
+          if-no-files-found: error
+
+            fi
             echo "Verified $ipk"
             printf '%s\n' "$control"
           done
