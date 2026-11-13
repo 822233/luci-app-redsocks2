@@ -1,11 +1,15 @@
 {
 	"luci-app-redsocks2": {
-	"description": "Grant UCI access for luci-app-redsocks2",
-	"read": {
-		"uci": [ "redsocks2" ]
+		"description": "Grant UCI and controlled import access for luci-app-redsocks2",
+		"read": {
+			"uci": [ "redsocks2" ]
 		},
-	"write": {
-		"uci": [ "redsocks2" ]
+		"write": {
+			"uci": [ "redsocks2" ],
+			"file": [ "/tmp/redsocks2-import.txt" ],
+			"ubus": {
+				"file": [ "exec", "write" ]
+			}
 		}
 	}
 }

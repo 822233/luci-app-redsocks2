@@ -2,38 +2,56 @@
 # Import subscription URIs supported by the bundled Redsocks2 core.
 . /lib/functions.sh
 
-SUB="$1"
-case "$SUB" in ""|*[!A-Za-z0-9_]*) echo "订阅编号无效"; exit 1;; esac
+MODE="subscription"
+SUB=""
+MANUAL_FILE=""
+if [ "$1" = "--file" ]; then
+	MODE="manual"
+	MANUAL_FILE="$2"
+	[ "$MANUAL_FILE" = "/tmp/redsocks2-import.txt" ] || { echo "导入文件路径无效"; exit 1; }
+	[ -s "$MANUAL_FILE" ] || { echo "导入内容为空"; exit 1; }
+else
+	SUB="$1"
+	case "$SUB" in ""|*[!A-Za-z0-9_]*) echo "订阅编号无效"; exit 1;; esac
+fi
 
 TMP="$(mktemp -d /tmp/redsocks2-sub.XXXXXX)" || exit 1
-trap 'rm -rf "$TMP"' EXIT INT TERM
+cleanup() {
+	rm -rf "$TMP"
+	[ -n "$MANUAL_FILE" ] && rm -f "$MANUAL_FILE"
+}
+trap cleanup EXIT INT TERM
 RAW="$TMP/raw"
 LIST="$TMP/list"
 PARSED="$TMP/parsed"
 : > "$PARSED"
 
 config_load redsocks2
-config_get URL "$SUB" url
-[ -n "$URL" ] || { echo "订阅地址为空"; exit 1; }
-
-# URL is passed as a quoted argument; it is never evaluated as shell code.
-if command -v curl >/dev/null 2>&1; then
-	curl -fsSL --connect-timeout 15 --max-time 90 --retry 1 -- "$URL" -o "$RAW" || {
-		echo "订阅下载失败"; exit 1;
-	}
-elif command -v uclient-fetch >/dev/null 2>&1; then
-	uclient-fetch -q -T 90 -O "$RAW" "$URL" || { echo "订阅下载失败"; exit 1; }
+if [ "$MODE" = "manual" ]; then
+	cp "$MANUAL_FILE" "$LIST" || { echo "读取导入内容失败"; exit 1; }
 else
-	echo "缺少 curl 或 uclient-fetch"; exit 1
-fi
+	config_get URL "$SUB" url
+	[ -n "$URL" ] || { echo "订阅地址为空"; exit 1; }
 
-# Many providers return a Base64-encoded URI list.
-if ! grep -q '://' "$RAW"; then
-	tr -d '\r\n ' < "$RAW" | tr '_-' '/+' | base64 -d > "$LIST" 2>/dev/null || {
-		echo "订阅内容既不是 URI 列表，也不是有效 Base64"; exit 1;
-	}
-else
-	cp "$RAW" "$LIST"
+	# URL is passed as a quoted argument; it is never evaluated as shell code.
+	if command -v curl >/dev/null 2>&1; then
+		curl -fsSL --connect-timeout 15 --max-time 90 --retry 1 -- "$URL" -o "$RAW" || {
+			echo "订阅下载失败"; exit 1;
+		}
+	elif command -v uclient-fetch >/dev/null 2>&1; then
+		uclient-fetch -q -T 90 -O "$RAW" "$URL" || { echo "订阅下载失败"; exit 1; }
+	else
+		echo "缺少 curl 或 uclient-fetch"; exit 1
+	fi
+
+	# Many providers return a Base64-encoded URI list.
+	if ! grep -q '://' "$RAW"; then
+		tr -d '\r\n ' < "$RAW" | tr '_-' '/+' | base64 -d > "$LIST" 2>/dev/null || {
+			echo "订阅内容既不是 URI 列表，也不是有效 Base64"; exit 1;
+		}
+	else
+		cp "$RAW" "$LIST"
+	fi
 fi
 
 remove_old_node() {
@@ -53,7 +71,13 @@ decode_uri_component() {
 }
 
 decode_ss() {
-	printf '%s' "$1" | tr '_-' '/+' | base64 -d 2>/dev/null
+	local encoded
+	encoded="$(printf '%s' "$1" | tr '_-' '/+')"
+	case $((${#encoded} % 4)) in
+		2) encoded="${encoded}==";;
+		3) encoded="${encoded}=";;
+	esac
+	printf '%s' "$encoded" | base64 -d 2>/dev/null
 }
 
 count=0
@@ -94,6 +118,22 @@ while IFS= read -r line || [ -n "$line" ]; do
 	esac
 	if [ "$proto" != "shadowsocks" ]; then
 		case "$rest" in *@*) auth="${rest%%@*}"; endpoint="${rest#*@}";; *) endpoint="$rest";; esac
+		query=""
+		case "$endpoint" in
+			*\?*) query="${endpoint#*\?}"; endpoint="${endpoint%%\?*}";;
+		esac
+		# Custom HTTPS links encode "host:port" as URL-safe Base64 in the URL host.
+		# allowInsecure=1 is accepted; the bundled HTTPS CONNECT core already skips
+		# upstream proxy-certificate verification.
+		if [ "$proto" = "https-connect" ]; then
+			case "$endpoint" in
+				*:* ) ;;
+				*)
+					decoded="$(decode_ss "$endpoint")"
+					case "$decoded" in *:*) endpoint="$decoded";; esac
+					;;
+			esac
+		fi
 		case "$auth" in *:*) user="${auth%%:*}"; pass="${auth#*:}";; *) user="$auth";; esac
 		user="$(decode_uri_component "$user")" || { skipped=$((skipped+1)); continue; }
 		pass="$(decode_uri_component "$pass")" || { skipped=$((skipped+1)); continue; }
@@ -115,7 +155,7 @@ while IFS= read -r line || [ -n "$line" ]; do
 		esac
 		user="$method"
 	fi
-	name="$fragment"
+	name="$(decode_uri_component "$fragment" 2>/dev/null)" || name="$fragment"
 	[ -n "$name" ] || name="$host:$port"
 	# Keep the importer output delimiter-safe and bounded.
 	name="$(printf '%s' "$name" | tr -cd 'A-Za-z0-9._ -' | cut -c1-48)"
@@ -133,7 +173,9 @@ count="$(wc -l < "$PARSED" | tr -d ' ')"
 
 # Only replace nodes belonging to this subscription after at least one valid
 # node has been parsed; manually created nodes are untouched.
-config_foreach remove_old_node redsocks2_node
+if [ "$MODE" = "subscription" ]; then
+	config_foreach remove_old_node redsocks2_node
+fi
 first_imported=""
 while IFS='|' read -r proto host port user pass name; do
 	section="$(uci add redsocks2 redsocks2_node)"
@@ -145,7 +187,9 @@ while IFS='|' read -r proto host port user pass name; do
 	uci set "redsocks2.$section.port=$port"
 	uci set "redsocks2.$section.username=$user"
 	uci set "redsocks2.$section.password=$pass"
-	uci set "redsocks2.$section.subscription_id=$SUB"
+	if [ "$MODE" = "subscription" ]; then
+		uci set "redsocks2.$section.subscription_id=$SUB"
+	fi
 done < "$PARSED"
 
 # If UCI could not create any imported section, discard staged deletions
@@ -163,5 +207,11 @@ if [ -z "$active" ] || ! uci -q get "redsocks2.$active" >/dev/null 2>&1; then
 	[ -n "$first_imported" ] && uci set "redsocks2.@redsocks2_base[0].active_node=$first_imported"
 fi
 uci commit redsocks2
-printf '导入成功：%s 个支持节点；跳过 %s 条不支持或格式错误的记录。\n' "$count" "$skipped" > "/tmp/redsocks2-subscription-$SUB"
+if [ "$MODE" = "subscription" ]; then
+	printf '导入成功：%s 个支持节点；跳过 %s 条不支持或格式错误的记录。\n' "$count" "$skipped" > "/tmp/redsocks2-subscription-$SUB"
+fi
+if ! /etc/init.d/redsocks2 restart; then
+	echo "节点已导入，但代理服务重启失败" >&2
+	exit 1
+fi
 echo "导入完成：$count 个节点，跳过 $skipped 条"

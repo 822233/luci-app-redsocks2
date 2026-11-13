@@ -15,3 +15,11 @@ Redsocks2 LuCI 1.0.3
 Compatibility note:
 - IPv6 proxy endpoints remain excluded from subscription import because IPv6 support in the bundled Redsocks2 core has not been verified.
 - Shadowsocks webpage testing requires a compatible ss-local executable; it is optional and is not a hard package dependency.
+
+
+UI and import improvements:
+- Replace the inline node editor with the native LuCI GridSection add/edit modal.
+- Add manual multi-line share-link import in Basic Settings.
+- Reuse the existing subscription URI importer for manual imports, preserving its protocol validation and duplicate filtering.
+- Decode URL-safe Base64 HTTPS endpoints such as https://BASE64(host:port)?allowInsecure=1#name.
+- Manual imports append nodes without deleting existing manually configured nodes.

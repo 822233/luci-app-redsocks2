@@ -11,7 +11,7 @@ function index()
 		"Redsocks2")
 
 	entry({"admin", "services", "redsocks2", "general"},
-		cbi("redsocks2/general"),
+		view("redsocks2/general"),
 		"基本设置", 10).leaf = true
 
 	entry({"admin", "services", "redsocks2", "speedtest"},
