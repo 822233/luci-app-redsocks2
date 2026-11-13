@@ -16,7 +16,8 @@ Redsocks2 LuCI 1.0.3
 - Reuse the existing subscription URI importer for manual imports, preserving its protocol validation and duplicate filtering.
 - Decode URL-safe Base64 HTTPS endpoints such as https://BASE64(host:port)?allowInsecure=1#name.
 - Manual imports append nodes without deleting existing manually configured nodes.
-- Fix the LuCI ACL: bind the application ACL to Basic Settings and explicitly authorize only the required Redsocks2 commands and import file.
+- Correct the RPC file ACL to authorize executable paths rather than command strings with arguments.
+- Attach the application ACL dependency directly to the Basic Settings route.
 
 Compatibility note:
 - IPv6 proxy endpoints remain excluded from subscription import because IPv6 support in the bundled Redsocks2 core has not been verified.
