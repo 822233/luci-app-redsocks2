@@ -97,7 +97,7 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p "$GITHUB_WORKSPACE/dist"
-          find bin/packages -type f \\( -name 'redsocks2_*.ipk' -o -name 'luci-app-redsocks2_*.ipk' \\) -exec cp -v {} "$GITHUB_WORKSPACE/dist/" \\;
+          find bin/packages -type f \( -name 'redsocks2_*.ipk' -o -name 'luci-app-redsocks2_*.ipk' \) -exec cp -v {} "$GITHUB_WORKSPACE/dist/" \;
 
           mapfile -t ipks < <(find "$GITHUB_WORKSPACE/dist" -maxdepth 1 -type f -name '*.ipk' | sort)
           test "${#ipks[@]}" -eq 2
@@ -107,14 +107,14 @@ jobs:
             ipk="${matches[0]}"
             # OpenWrt IPK files are gzip-compressed tar archives.
             members="$(tar -tzf "$ipk")"
-            control_member="$(printf '%s\\n' "$members" | grep -m1 -E '(^|/)control.tar.gz$')"
+            control_member="$(printf '%s\n' "$members" | grep -m1 -E '(^|/)control.tar.gz$')"
             test -n "$control_member"
             control="$(tar -xzOf "$ipk" "$control_member" | tar -xzOf - ./control)"
-            printf '%s\\n' "$control" | grep -Fx "Package: $expected"
-            printf '%s\\n' "$control" | grep -Eq '^Version: [^[:space:]]+'
-            printf '%s\\n' "$control" | grep -Eq '^Architecture: [^[:space:]]+'
+            printf '%s\n' "$control" | grep -Fx "Package: $expected"
+            printf '%s\n' "$control" | grep -Eq '^Version: [^[:space:]]+'
+            printf '%s\n' "$control" | grep -Eq '^Architecture: [^[:space:]]+'
             echo "Verified $ipk"
-            printf '%s\\n' "$control"
+            printf '%s\n' "$control"
           done
           sha256sum "${ipks[@]}"
 
