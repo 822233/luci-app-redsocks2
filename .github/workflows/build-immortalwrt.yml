@@ -45,8 +45,6 @@ jobs:
           cp "$GITHUB_WORKSPACE/sdk/openssl-module.mk" include/openssl-module.mk
           cp "$GITHUB_WORKSPACE/sdk/libevent2/Makefile" package/libs/libevent2/Makefile
 
-          # Update feeds first: feed update may recreate the feeds tree, so the
-          # compatibility link for this SDK's OpenSSL Config.in must be added after it.
           ./scripts/feeds update -a
           ./scripts/feeds install -p packages curl
           ./scripts/feeds install -p luci luci-base
@@ -57,10 +55,14 @@ jobs:
           test -f package/libs/openssl/Config.in
           test -f feeds/base/libs/openssl/Config.in
           echo "OpenSSL Config.in: $(readlink -f feeds/base/libs/openssl/Config.in)"
+
           mkdir -p package/redsocks2
           cp -a "$GITHUB_WORKSPACE/redsocks2/." package/redsocks2/
-          # Place this local LuCI app directly in the SDK package tree.
-          # scripts/feeds install cannot index this standalone LuCI package reliably.
+
+          # Remove any SDK/feed copy of this app. The local maintained source
+          # must be the only package definition selected by the build system.
+          rm -rf feeds/base/luci-app-redsocks2 feeds/luci/luci-app-redsocks2
+          rm -rf package/luci-app-redsocks2
           mkdir -p package/luci-app-redsocks2
           cp "$GITHUB_WORKSPACE/Makefile" package/luci-app-redsocks2/
           cp -a "$GITHUB_WORKSPACE/luasrc" package/luci-app-redsocks2/
@@ -72,11 +74,11 @@ jobs:
             cp -a "$GITHUB_WORKSPACE/po" package/luci-app-redsocks2/
           fi
           test -f package/luci-app-redsocks2/Makefile
+          grep -Fx 'PKG_RELEASE:=4' package/luci-app-redsocks2/Makefile
+          test -f package/luci-app-redsocks2/luasrc/controller/redsocks2.lua
           test -f package/luci-app-redsocks2/htdocs/luci-static/resources/view/redsocks2/general.js
           test -f feeds/luci/luci.mk
           make defconfig
-          # SDKs do not provide the full-source-tree package/metadata target.
-          # make defconfig above/below generates the package configuration metadata.
           printf '\nCONFIG_PACKAGE_libopenssl=y\n# CONFIG_OPENSSL_ENGINE is not set\n# CONFIG_OPENSSL_ENGINE_BUILTIN is not set\n# CONFIG_OPENSSL_ENGINE_BUILTIN_DEVCRYPTO is not set\nCONFIG_PACKAGE_libopenssl-conf=y\nCONFIG_PACKAGE_libevent2=y\nCONFIG_PACKAGE_libevent2-openssl=y\nCONFIG_PACKAGE_redsocks2=m\nCONFIG_PACKAGE_luci-app-redsocks2=m\n' >> .config
           make defconfig
           grep -E '^(CONFIG_PACKAGE_(libopenssl|libopenssl-conf|libevent2|libevent2-openssl|redsocks2|luci-app-redsocks2)=)' .config
@@ -122,12 +124,20 @@ jobs:
             printf '%s\n' "$control" | grep -Eq '^Version: [^[:space:]]+'
             printf '%s\n' "$control" | grep -Eq '^Architecture: [^[:space:]]+'
             if [ "$expected" = "luci-app-redsocks2" ]; then
-              printf '%s\n' "$control" | grep -Fx 'Version: 1.0.3-r3'
+              printf '%s\n' "$control" | grep -Fx 'Version: 1.0.3-r4'
               data_member="$(printf '%s\n' "$members" | grep -m1 -E '(^|/)data.tar.gz$')"
               test -n "$data_member"
               data_members="$(tar -xzOf "$ipk" "$data_member" | tar -tzf -)"
+              printf '%s\n' "$data_members" | grep -Eq '(^|/)usr/lib/lua/luci/controller/redsocks2\.lua$'
+              printf '%s\n' "$data_members" | grep -Eq '(^|/)usr/share/rpcd/acl\.d/luci-app-redsocks2\.json$'
               printf '%s\n' "$data_members" | grep -Eq '(^|/)www/luci-static/resources/view/redsocks2/general\.js$'
               printf '%s\n' "$data_members" | grep -Eq '(^|/)usr/bin/redsocks2-subscription$'
+              controller="$(tar -xzOf "$ipk" "$data_member" | tar -xzOf - ./usr/lib/lua/luci/controller/redsocks2.lua)"
+              printf '%s\n' "$controller" | grep -F 'local general = entry'
+              if printf '%s\n' "$controller" | grep -Fq 'entry({"admin", "services", "redsocks2", "general"}).acl_depends'; then
+                echo "ERROR: stale duplicate LuCI route registration packaged" >&2
+                exit 1
+              fi
             fi
             echo "Verified $ipk"
             printf '%s\n' "$control"
