@@ -97,24 +97,24 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p "$GITHUB_WORKSPACE/dist"
-          find bin/packages -type f \( -name 'redsocks2_*.ipk' -o -name 'luci-app-redsocks2_*.ipk' \) -exec cp -v {} "$GITHUB_WORKSPACE/dist/" \;
+          find bin/packages -type f \\( -name 'redsocks2_*.ipk' -o -name 'luci-app-redsocks2_*.ipk' \\) -exec cp -v {} "$GITHUB_WORKSPACE/dist/" \\;
 
-          # Require exactly the two intended packages; fail on missing or duplicate variants.
           mapfile -t ipks < <(find "$GITHUB_WORKSPACE/dist" -maxdepth 1 -type f -name '*.ipk' | sort)
           test "${#ipks[@]}" -eq 2
           for expected in redsocks2 luci-app-redsocks2; do
             matches=("$GITHUB_WORKSPACE"/dist/"$expected"_*.ipk)
             test "${#matches[@]}" -eq 1
             ipk="${matches[0]}"
-            # OpenWrt 24.10 ipkg-build emits a gzip-compressed tar archive,
-            # not a Debian ar archive.
+            # OpenWrt IPK files are gzip-compressed tar archives.
             members="$(tar -tzf "$ipk")"
-            control_member="$(printf '%s\n' "$members" | grep -m1 -E '(^|/)control\.tar\.gz
-            printf '%s\n' "$control" | grep -Fx "Package: $expected"
-            printf '%s\n' "$control" | grep -Eq '^Version: [^[:space:]]+'
-            printf '%s\n' "$control" | grep -Eq '^Architecture: [^[:space:]]+'
+            control_member="$(printf '%s\\n' "$members" | grep -m1 -E '(^|/)control.tar.gz$')"
+            test -n "$control_member"
+            control="$(tar -xzOf "$ipk" "$control_member" | tar -xzOf - ./control)"
+            printf '%s\\n' "$control" | grep -Fx "Package: $expected"
+            printf '%s\\n' "$control" | grep -Eq '^Version: [^[:space:]]+'
+            printf '%s\\n' "$control" | grep -Eq '^Architecture: [^[:space:]]+'
             echo "Verified $ipk"
-            printf '%s\n' "$control"
+            printf '%s\\n' "$control"
           done
           sha256sum "${ipks[@]}"
 
