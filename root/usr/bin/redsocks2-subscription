@@ -184,12 +184,12 @@ while IFS= read -r line || [ -n "$line" ]; do
 	# Keep the importer output delimiter-safe and bounded.
 	name="$(printf '%s' "$name" | tr -d '|[:cntrl:]' | cut -c1-96)"
 	[ -n "$name" ] || name="$host:$port"
-	printf '%s|%s|%s|%s|%s|%s\n' "$proto" "$host" "$port" "$user" "$pass" "$name" >> "$PARSED"
+	printf '%s|%s|%s|%s|%s|%s|%s\n' "$proto" "$host" "$port" "$user" "$pass" "$method" "$name" >> "$PARSED"
 	count=$((count+1))
 done < "$LIST"
 
 # Remove exact duplicate imported entries while preserving their original order.
-awk -F '|' '!seen[$1 FS $2 FS $3 FS $4 FS $5]++' "$PARSED" > "$TMP/unique"
+awk -F '|' '!seen[$1 FS $2 FS $3 FS $4 FS $5 FS $6]++' "$PARSED" > "$TMP/unique"
 mv "$TMP/unique" "$PARSED"
 count="$(wc -l < "$PARSED" | tr -d ' ')"
 
@@ -201,7 +201,7 @@ if [ "$MODE" = "subscription" ]; then
 	config_foreach remove_old_node redsocks2_node
 fi
 first_imported=""
-while IFS='|' read -r proto host port user pass name; do
+while IFS='|' read -r proto host port user pass method name; do
 	if [ "$MODE" = "manual" ]; then
 		duplicate=0
 		config_foreach check_existing_node redsocks2_node
