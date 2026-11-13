@@ -100,7 +100,7 @@ return view.extend({
 		o.rmempty = false;
 
 		// Ordinary proxy protocols use a username; Shadowsocks uses a cipher.
-		// Both are stored in the existing "username" UCI option for core compatibility.
+		// The cipher is stored separately as "method"; the service maps it to the core login field.
 		o = nodes.taboption('basic', form.Value, 'username', _('用户名'));
 		o.rmempty = true;
 		[ 'https-connect', 'http-connect', 'socks4', 'socks5' ].forEach(function(type) {
