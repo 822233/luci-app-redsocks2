@@ -2,6 +2,7 @@
 local fs = require "nixio.fs"
 local sys = require "luci.sys"
 local uci = require "luci.model.uci".cursor()
+local util = require "luci.util"
 
 m = Map("redsocks2", "Redsocks2 - 测速与订阅",
 	"网页测速会通过代理实际访问 HTTPS 页面并下载测试文件，不使用 TCP 端口探测。订阅仅导入核心支持的协议。"
@@ -10,6 +11,31 @@ m = Map("redsocks2", "Redsocks2 - 测速与订阅",
 local speed = m:section(TypedSection, "redsocks2_base", "网页测速")
 speed.anonymous = true
 speed.addremove = false
+
+local new_url = speed:option(Value, "_new_subscription_url", "订阅链接")
+new_url.placeholder = "https://example.com/subscribe"
+new_url.description = "粘贴订阅链接后点击右侧按钮；订阅名称将优先读取链接末尾的 #名称，没有名称时自动使用网址域名。"
+new_url.rmempty = true
+new_url.cfgvalue = function()
+	return ""
+end
+-- This is a transient input, not a persistent UCI setting.
+new_url.write = function()
+end
+
+local add_subscription = speed:option(Button, "_add_subscription", "添加订阅")
+add_subscription.inputtitle = "添加订阅"
+add_subscription.inputstyle = "add"
+add_subscription.write = function(self, section)
+	local subscription_url = new_url:formvalue(section)
+	if not subscription_url or subscription_url == "" then
+		return
+	end
+	local command = "/usr/bin/redsocks2-subscription --add-url " ..
+		util.shellquote(subscription_url) ..
+		" >/tmp/redsocks2-subscription-add.log 2>&1 &"
+	sys.call(command)
+end
 
 local target = speed:option(ListValue, "test_target", "网页测速地址")
 target.description = "选择用于检测节点实际网页连通性的目标；自定义地址仅支持 HTTP/HTTPS。"
