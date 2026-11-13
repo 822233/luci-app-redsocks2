@@ -137,6 +137,9 @@ return view.extend({
 				if (result.code !== 0)
 					throw new Error(result.stderr || result.stdout || _('代理服务重启失败'));
 				ui.addNotification(null, E('p', _('配置已保存，代理服务已重启。')), 'info');
+				window.setTimeout(function() {
+					window.location.reload();
+				}, 600);
 			});
 	},
 
