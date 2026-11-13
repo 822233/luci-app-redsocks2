@@ -128,11 +128,8 @@ return view.extend({
 		return m.render();
 	},
 
-	handleSave: function(ev) {
-		return this.super('handleSave', [ ev ])
-			.then(function() {
-				return uci.commit('redsocks2');
-			})
+	handleSaveApply: function(ev, mode) {
+		return this.super('handleSaveApply', [ ev, mode ])
 			.then(function() {
 				return fs.exec('/etc/init.d/redsocks2', [ 'restart' ]);
 			})
