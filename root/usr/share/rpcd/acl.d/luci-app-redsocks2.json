@@ -1,15 +1,26 @@
 {
 	"luci-app-redsocks2": {
-		"description": "Grant UCI and controlled import access for luci-app-redsocks2",
+		"description": "Grant access to Redsocks2 configuration and controlled node import",
 		"read": {
+			"file": {
+				"/etc/init.d/redsocks2 migrate": [ "exec" ]
+			},
+			"ubus": {
+				"file": [ "exec" ]
+			},
 			"uci": [ "redsocks2" ]
 		},
 		"write": {
-			"uci": [ "redsocks2" ],
-			"file": [ "/tmp/redsocks2-import.txt" ],
+			"file": {
+				"/etc/init.d/redsocks2 restart": [ "exec" ],
+				"/sbin/uci commit redsocks2": [ "exec" ],
+				"/usr/bin/redsocks2-subscription --file /tmp/redsocks2-import.txt": [ "exec" ],
+				"/tmp/redsocks2-import.txt": [ "write" ]
+			},
 			"ubus": {
 				"file": [ "exec", "write" ]
-			}
+			},
+			"uci": [ "redsocks2" ]
 		}
 	}
 }
