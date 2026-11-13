@@ -80,8 +80,28 @@ decode_ss() {
 	printf '%s' "$encoded" | base64 -d 2>/dev/null
 }
 
+# Check already configured nodes before appending a manual import.
+check_existing_node() {
+	local section="$1" current_proto="" current_host="" current_port="" current_user="" current_pass=""
+	config_get current_proto "$section" proxy_type
+	config_get current_host "$section" ip
+	config_get current_port "$section" port
+	config_get current_user "$section" username
+	config_get current_pass "$section" password
+	[ -n "$current_proto" ] || current_proto="https-connect"
+	if [ "$current_proto" = "$proto" ] &&
+		[ "$current_host" = "$host" ] &&
+		[ "$current_port" = "$port" ] &&
+		[ "$current_user" = "$user" ] &&
+		[ "$current_pass" = "$pass" ]; then
+		duplicate=1
+	fi
+}
+
 count=0
 skipped=0
+duplicates=0
+added=0
 while IFS= read -r line || [ -n "$line" ]; do
 	line="$(printf '%s' "$line" | tr -d '\r')"
 	case "$line" in ""|\#*) continue;; esac
@@ -178,6 +198,14 @@ if [ "$MODE" = "subscription" ]; then
 fi
 first_imported=""
 while IFS='|' read -r proto host port user pass name; do
+	if [ "$MODE" = "manual" ]; then
+		duplicate=0
+		config_foreach check_existing_node redsocks2_node
+		if [ "$duplicate" -eq 1 ]; then
+			duplicates=$((duplicates+1))
+			continue
+		fi
+	fi
 	section="$(uci add redsocks2 redsocks2_node)"
 	[ -n "$section" ] || continue
 	[ -n "$first_imported" ] || first_imported="$section"
@@ -190,13 +218,19 @@ while IFS='|' read -r proto host port user pass name; do
 	if [ "$MODE" = "subscription" ]; then
 		uci set "redsocks2.$section.subscription_id=$SUB"
 	fi
+	added=$((added+1))
 done < "$PARSED"
 
 # If UCI could not create any imported section, discard staged deletions
 # so the previous subscription remains intact.
 if [ -z "$first_imported" ]; then
+	if [ "$MODE" = "manual" ] && [ "$duplicates" -gt 0 ]; then
+		uci revert redsocks2
+		echo "节点均已存在，未重复添加（重复 $duplicates 条）"
+		exit 0
+	fi
 	uci revert redsocks2
-	echo "导入失败：无法创建节点，已保留原订阅配置"
+	echo "导入失败：无法创建节点，已保留原配置"
 	exit 1
 fi
 
@@ -208,10 +242,10 @@ if [ -z "$active" ] || ! uci -q get "redsocks2.$active" >/dev/null 2>&1; then
 fi
 uci commit redsocks2
 if [ "$MODE" = "subscription" ]; then
-	printf '导入成功：%s 个支持节点；跳过 %s 条不支持或格式错误的记录。\n' "$count" "$skipped" > "/tmp/redsocks2-subscription-$SUB"
+	printf '导入成功：%s 个新增支持节点；跳过 %s 条不支持或格式错误的记录；重复 %s 条。\n' "$added" "$skipped" "$duplicates" > "/tmp/redsocks2-subscription-$SUB"
 fi
 if ! /etc/init.d/redsocks2 restart; then
 	echo "节点已导入，但代理服务重启失败" >&2
 	exit 1
 fi
-echo "导入完成：$count 个节点，跳过 $skipped 条"
+echo "导入完成：新增 $added 个节点，跳过 $skipped 条，重复 $duplicates 条"
