@@ -128,9 +128,14 @@ return view.extend({
 		return m.render();
 	},
 
-	handleSaveApply: function(ev, mode) {
-		return this.super('handleSaveApply', [ ev, mode ])
+	handleSave: function(ev) {
+		return this.super('handleSave', [ ev ])
 			.then(function() {
+				return fs.exec('/sbin/uci', [ 'commit', 'redsocks2' ]);
+			})
+			.then(function(result) {
+				if (result.code !== 0)
+					throw new Error(result.stderr || result.stdout || _('保存 Redsocks2 配置失败'));
 				return fs.exec('/etc/init.d/redsocks2', [ 'restart' ]);
 			})
 			.then(function(result) {
@@ -141,6 +146,10 @@ return view.extend({
 					window.location.reload();
 				}, 600);
 			});
+	},
+
+	handleSaveApply: function(ev) {
+		return this.handleSave(ev);
 	},
 
 	showImportModal: function() {
