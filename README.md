@@ -7,6 +7,7 @@
 - 支持 HTTPS CONNECT（TLS）代理，编译时启用 `ENABLE_HTTPS_PROXY=true`
 - 支持通过 LuCI 弹窗添加、编辑和删除多个代理节点
 - 支持在基本设置中粘贴单个或多条节点分享链接导入；可识别 HTTPS CONNECT 自定义 Base64 地址格式，以及 HTTP CONNECT、SOCKS4、SOCKS5 和受支持的 Shadowsocks URI
+- TXT 裸 IP:端口导入使用并发协议握手自动识别 HTTP CONNECT、HTTPS CONNECT、SOCKS4 和 SOCKS5；分享链接按协议头直接解析，不进行探测
 - 导入时自动提取节点名称、服务器、端口和认证信息；重复节点去重，不支持的协议会跳过并报告数量
 - 可选择当前使用的节点，切换后自动重启代理服务
 - 支持代理用户名和密码（可选）
