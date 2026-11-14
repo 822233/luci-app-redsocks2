@@ -187,6 +187,7 @@ return view.extend({
 			'style': 'width:100%; margin:8px 0;'
 		});
 		const protocol = E('select', { 'class': 'cbi-input-select', 'style': 'width:100%;' }, [
+			E('option', { 'value': 'auto' }, _('自动检测（推荐）')),
 			E('option', { 'value': 'socks5' }, _('SOCKS5')),
 			E('option', { 'value': 'http-connect' }, _('HTTP CONNECT')),
 			E('option', { 'value': 'https-connect' }, _('HTTPS CONNECT')),
@@ -203,9 +204,9 @@ return view.extend({
 			E('p', {}, _('上传 TXT 文件，或直接粘贴节点内容。支持每行一个 IP:端口，也支持原有代理分享链接。')),
 			E('label', {}, _('选择 TXT 文件')),
 			fileInput,
-			E('label', {}, _('IP:端口列表的统一协议（分享链接会自动识别协议）')),
+			E('label', {}, _('代理协议（纯 IP:端口建议选择自动检测）')),
 			protocol,
-			E('p', {}, _('注意：纯 IP:端口格式不包含协议、用户名或密码，不能自动判断协议；请按节点来源选择正确类型。')),
+			E('p', {}, _('纯 IP:端口将自动探测 HTTPS CONNECT、HTTP CONNECT、SOCKS5、SOCKS4；需要认证的代理无法仅凭地址自动识别。')),
 			textarea,
 			E('div', { 'class': 'right' }, [
 				E('button', { 'class': 'cbi-button', 'click': ui.hideModal }, [ _('取消') ]),
