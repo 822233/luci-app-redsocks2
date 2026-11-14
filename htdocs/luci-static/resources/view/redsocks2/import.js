@@ -96,9 +96,9 @@ return view.extend({
 		}, _('粘贴内容并自动识别导入'));
 
 		return E('div', { 'class': 'cbi-map' }, [
-			E('h2', {}, _('Redsocks2 - 批量导入节点')),
+			E('h2', {}, _('Redsocks2 - 批量导入节点（r19）')),
 			E('p', { 'class': 'cbi-section-descr' },
-				_('分享链接按协议头直接识别；纯 IP:端口自动检测 HTTPS CONNECT、HTTP CONNECT、SOCKS5、SOCKS4。无需手动选择协议。')),
+				_('支持 HTTP/HTTPS/SOCKS4/SOCKS5 分享链接、Base64 订阅内容和 HTTP(S) 订阅地址；纯 IP:端口自动检测代理协议。')),
 			E('div', { 'class': 'cbi-section' }, [
 				E('div', { 'class': 'cbi-value' }, [
 					E('div', { 'class': 'cbi-value-field' }, [ fileButton ])
