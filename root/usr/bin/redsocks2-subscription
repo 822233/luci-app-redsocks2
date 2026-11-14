@@ -198,7 +198,8 @@ if [ "$MODE" = "manual" ]; then
 							;;
 					esac
 				fi
-				case "$tail_part" in ''|'#'*) has_url_path=0;; *) has_url_path=1;; esac
+				# A query (e.g. ?allowInsecure=1) is not a URL path.
+				case "$tail_part" in ''|'#'*|\?*) has_url_path=0;; *) has_url_path=1;; esac
 				if [ "$is_proxy_uri" -eq 0 ] || [ "$has_url_path" -eq 1 ]; then
 					if command -v curl >/dev/null 2>&1; then
 						curl -fsSL --connect-timeout 15 --max-time 90 --retry 1 -o "$RAW" -- "$input_line" || {
