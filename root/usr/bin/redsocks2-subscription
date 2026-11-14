@@ -251,6 +251,7 @@ done < "$LIST"
 if [ "$MODE" = "manual" ] && [ "$MANUAL_TYPE" = "auto" ]; then
 	cp "$PARSED" "$TMP/parsed-before-detect" || exit 1
 	index=0
+	running=0
 	while IFS='|' read -r proto host port user pass method name; do
 		index=$((index+1))
 		[ "$proto" = "auto" ] || continue
@@ -258,11 +259,13 @@ if [ "$MODE" = "manual" ] && [ "$MANUAL_TYPE" = "auto" ]; then
 			detected="$(detect_proxy_protocol "$host" "$port" 2>/dev/null)" || detected="unknown"
 			printf '%s\n' "$detected" > "$TMP/detect.$index"
 		) &
-		while [ "$(jobs -p | wc -l | tr -d ' ')" -ge 3 ]; do
-			sleep 0.1
-		done
+		running=$((running+1))
+		if [ "$running" -ge 3 ]; then
+			wait
+			running=0
+		fi
 	done < "$TMP/parsed-before-detect"
-	wait
+	[ "$running" -eq 0 ] || wait
 
 	: > "$PARSED"
 	index=0
