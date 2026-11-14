@@ -9,7 +9,52 @@
          return -1; 
      }
      if (!EVP_CIPHER_CTX_set_key_length(evp, info->key_len)) {
-@@ -739,5 +739,7 @@
+@@ -615,12 +617,14 @@
+-static void cipher_context_set_iv(const enc_info * info, cipher_ctx_t *ctx, uint8_t *iv, size_t iv_len,
++static int cipher_context_set_iv(const enc_info * info, cipher_ctx_t *ctx, uint8_t *iv, size_t iv_len,
+                            int enc)
+ {
+     const unsigned char *true_key;
+ 
+     if (iv == NULL) {
+         //LOGE("cipher_context_set_iv(): IV is null");
+-        return;
++        return 0;
+     }
+ 
+     if (enc) {
+-        rand_bytes(iv, iv_len);
++        if (!rand_bytes(iv, iv_len))
++            return 0;
+     }
+@@ -665,7 +669,7 @@
+             //FATAL("Cannot set CommonCrypto key and IV");
+         }
+-        return;
++        return cc->cryptor != NULL;
+     }
+ #endif
+ 
+@@ -677,7 +681,7 @@
+     if (evp == NULL) {
+         //LOGE("cipher_context_set_iv(): Cipher context is null");
+-        return;
++        return 0;
+     }
+ #if defined(USE_CRYPTO_OPENSSL)
+     if (!EVP_CipherInit_ex(evp, NULL, NULL, true_key, iv, enc)) {
+         EVP_CIPHER_CTX_free(evp);
+         ctx->evp = NULL;
+         //FATAL("Cannot set key and IV");
++        return 0;
+     }
+@@ -705,6 +710,7 @@
+ #ifdef DEBUG
+     dump("IV", (char *)iv, iv_len);
+ #endif
++    return 1;
+ }
+@@ -739,5 +745,7 @@
  #if defined(USE_CRYPTO_OPENSSL)
      cipher_evp_t *evp = ctx->evp;
 +    if (evp == NULL)
@@ -17,6 +62,23 @@
  #else
      cipher_evp_t *evp = &ctx->evp;
  #endif
+@@ -763,7 +771,8 @@
+         if (!ctx->init) {
+             uint8_t iv[MAX_IV_LENGTH];
+-            cipher_context_set_iv(ctx->info, &ctx->evp, iv, iv_len, 1);
++            if (!cipher_context_set_iv(ctx->info, &ctx->evp, iv, iv_len, 1))
++                return 0;
+             memcpy(ciphertext, iv, iv_len);
+             ctx->counter = 0;
+             ctx->init = 1;
+@@ -837,7 +846,8 @@
+             iv_len = ctx->info->iv_len;
+             p_len -= iv_len;
+-            cipher_context_set_iv(ctx->info, &ctx->evp, (uint8_t *)ciphertext, iv_len, 0);
++            if (!cipher_context_set_iv(ctx->info, &ctx->evp, (uint8_t *)ciphertext, iv_len, 0))
++                return 0;
+             ctx->counter = 0;
+             ctx->init = 1;
 --- a/shadowsocks.c
 +++ b/shadowsocks.c
 @@ -340,6 +340,6 @@
