@@ -11,7 +11,7 @@ on:
     branches:
       - immortalwrt-24.10-https
       - maintenance-r16-cleanup
-      - fix-shadowsocks-ctx-r4
+      - fix-shadowsocks-ctx-r4 # Keep the core-fix branch buildable during review.
     tags:
       - 'v*'
   pull_request:
