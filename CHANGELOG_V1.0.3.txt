@@ -27,3 +27,6 @@ Redsocks2 LuCI 1.0.3
 Compatibility note:
 - IPv6 proxy endpoints remain excluded from subscription import because IPv6 support in the bundled Redsocks2 core has not been verified.
 - Shadowsocks webpage testing requires a compatible ss-local executable; it is optional and is not a hard package dependency.
+
+- Fix the SDK workflow release assertion so it matches the package release, and add TXT file upload for bulk IP:port imports with an explicit HTTP CONNECT / HTTPS CONNECT / SOCKS4 / SOCKS5 protocol selector.
+- Reuse the existing validated importer for uploaded or pasted IP:port lists; retain URI scheme auto-detection, duplicate filtering, and safe UCI writes.
