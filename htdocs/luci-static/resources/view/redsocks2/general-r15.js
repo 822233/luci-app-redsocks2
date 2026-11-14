@@ -214,7 +214,7 @@ return view.extend({
 			fileInput,
 			E('label', {}, _('代理协议（纯 IP:端口建议选择自动检测）')),
 			protocol,
-			E('p', {}, _('纯 IP:端口将自动探测 HTTPS CONNECT、HTTP CONNECT、SOCKS5、SOCKS4；需要认证的代理无法仅凭地址自动识别。')),
+			E('p', {}, _('纯 IP:端口使用并发协议握手识别 HTTPS CONNECT、HTTP CONNECT、SOCKS5、SOCKS4，不依赖访问 Google；分享链接直接按协议头识别，不进行探测。需要认证的代理可能无法在无凭据时完成识别。')),
 			textarea,
 			E('div', { 'class': 'right' }, [
 				E('button', { 'class': 'cbi-button', 'click': ui.hideModal }, [ _('取消') ]),
