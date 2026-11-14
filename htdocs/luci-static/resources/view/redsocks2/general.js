@@ -180,52 +180,72 @@ return view.extend({
 	},
 
 	showImportModal: function() {
+		const fileInput = E('input', {
+			'type': 'file',
+			'accept': '.txt,text/plain',
+			'class': 'cbi-input-file',
+			'style': 'width:100%; margin:8px 0;'
+		});
+		const protocol = E('select', { 'class': 'cbi-input-select', 'style': 'width:100%;' }, [
+			E('option', { 'value': 'socks5' }, _('SOCKS5')),
+			E('option', { 'value': 'http-connect' }, _('HTTP CONNECT')),
+			E('option', { 'value': 'https-connect' }, _('HTTPS CONNECT')),
+			E('option', { 'value': 'socks4' }, _('SOCKS4'))
+		]);
 		const textarea = E('textarea', {
 			'class': 'cbi-input-textarea',
-			'rows': '8',
-			'style': 'width:100%; min-height:160px;',
+			'rows': '6',
+			'style': 'width:100%; min-height:120px;',
 			'placeholder': 'https://MTkzLjE3Ni44NC4zNzo5MDAy?allowInsecure=1#Romania-02'
 		});
 
 		ui.showModal(_('导入代理节点'), [
-			E('p', {}, _('每行粘贴一个节点分享链接，支持 HTTPS/HTTP CONNECT、SOCKS4、SOCKS5 和 Shadowsocks；不支持订阅网址。')),
+			E('p', {}, _('上传 TXT 文件，或直接粘贴节点内容。支持每行一个 IP:端口，也支持原有代理分享链接。')),
+			E('label', {}, _('选择 TXT 文件')),
+			fileInput,
+			E('label', {}, _('IP:端口列表的统一协议（分享链接会自动识别协议）')),
+			protocol,
+			E('p', {}, _('注意：纯 IP:端口格式不包含协议、用户名或密码，不能自动判断协议；请按节点来源选择正确类型。')),
 			textarea,
 			E('div', { 'class': 'right' }, [
 				E('button', { 'class': 'cbi-button', 'click': ui.hideModal }, [ _('取消') ]),
 				' ',
 				E('button', {
 					'class': 'cbi-button cbi-button-positive important',
-					'click': ui.createHandlerFn(this, 'importLinks', textarea)
+					'click': ui.createHandlerFn(this, 'importLinks', textarea, fileInput, protocol)
 				}, [ _('导入节点') ])
 			])
 		], 'cbi-modal');
 		textarea.focus();
 	},
 
-	importLinks: function(textarea) {
-		const content = textarea.value.trim();
-		if (!content) {
-			ui.addNotification(null, E('p', _('请先粘贴节点分享链接。')), 'warning');
-			return;
-		}
-
-		return fs.write('/tmp/redsocks2-import.txt', content, 384)
-			.then(function() {
-				return fs.exec('/usr/bin/redsocks2-subscription', [
-					'--file', '/tmp/redsocks2-import.txt'
-				]);
-			})
-			.then(function(result) {
-				if (result.code !== 0)
-					throw new Error(result.stderr || result.stdout || _('没有可导入的有效节点'));
-				ui.hideModal();
-				ui.addNotification(null, E('p', result.stdout || _('节点导入成功。')), 'success');
-				window.setTimeout(function() {
-					window.location.reload();
-				}, 800);
-			})
-			.catch(function(err) {
-				ui.addNotification(null, E('p', String(err)), 'error');
-			});
+	importLinks: function(textarea, fileInput, protocol) {
+		const file = fileInput.files && fileInput.files[0];
+		const readFile = file ? new Promise(function(resolve, reject) {
+			const reader = new FileReader();
+			reader.onload = function() { resolve(String(reader.result || '')); };
+			reader.onerror = function() { reject(new Error(_('读取 TXT 文件失败'))); };
+			reader.readAsText(file);
+		}) : Promise.resolve(textarea.value);
+		return readFile.then(function(raw) {
+			const content = raw.trim();
+			if (!content)
+				throw new Error(_('请先选择 TXT 文件或粘贴节点内容。'));
+			return fs.write('/tmp/redsocks2-import.txt', content, 384);
+		}).then(function() {
+			return fs.exec('/usr/bin/redsocks2-subscription', [
+				'--file', '/tmp/redsocks2-import.txt', '--type', protocol.value
+			]);
+		}).then(function(result) {
+			if (result.code !== 0)
+				throw new Error(result.stderr || result.stdout || _('没有可导入的有效节点'));
+			ui.hideModal();
+			ui.addNotification(null, E('p', result.stdout || _('节点导入成功。')), 'success');
+			window.setTimeout(function() {
+				window.location.reload();
+			}, 800);
+		}).catch(function(err) {
+			ui.addNotification(null, E('p', String(err)), 'error');
+		});
 	}
 });
