@@ -256,7 +256,7 @@ if [ "$MODE" = "manual" ] && [ "$MANUAL_TYPE" = "auto" ]; then
 		[ "$proto" = "auto" ] || continue
 		(
 			detected="$(detect_proxy_protocol "$host" "$port" 2>/dev/null)" || detected="unknown"
-			printf '%s\\n' "$detected" > "$TMP/detect.$index"
+			printf '%s\n' "$detected" > "$TMP/detect.$index"
 		) &
 		while [ "$(jobs -p | wc -l | tr -d ' ')" -ge 3 ]; do
 			sleep 0.1
@@ -279,7 +279,7 @@ if [ "$MODE" = "manual" ] && [ "$MANUAL_TYPE" = "auto" ]; then
 					;;
 			esac
 		fi
-		printf '%s|%s|%s|%s|%s|%s|%s\\n' "$proto" "$host" "$port" "$user" "$pass" "$method" "$name" >> "$PARSED"
+		printf '%s|%s|%s|%s|%s|%s|%s\n' "$proto" "$host" "$port" "$user" "$pass" "$method" "$name" >> "$PARSED"
 	done < "$TMP/parsed-before-detect"
 fi
 
