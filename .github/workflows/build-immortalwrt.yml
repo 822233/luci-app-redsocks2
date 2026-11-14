@@ -100,7 +100,9 @@ jobs:
           grep -Fx 'CONFIG_OPENSSL_WITH_CAMELLIA=y' .config
           grep -Fx 'CONFIG_OPENSSL_WITH_IDEA=y' .config
           grep -Fx 'CONFIG_OPENSSL_WITH_SEED=y' .config
-          grep -Eq '^CONFIG_PACKAGE_libopenssl-legacy=[my]
+          grep -Eq '^CONFIG_PACKAGE_libopenssl-legacy=[my]' .config
+
+      - name: Shell 脚本语法检查
         run: |
           sh -n "$GITHUB_WORKSPACE/root/etc/init.d/redsocks2"
           sh -n "$GITHUB_WORKSPACE/root/usr/bin/redsocks2-speedtest"
