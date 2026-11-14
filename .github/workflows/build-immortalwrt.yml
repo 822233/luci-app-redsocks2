@@ -100,7 +100,242 @@ jobs:
           grep -Fx 'CONFIG_OPENSSL_WITH_CAMELLIA=y' .config
           grep -Fx 'CONFIG_OPENSSL_WITH_IDEA=y' .config
           grep -Fx 'CONFIG_OPENSSL_WITH_SEED=y' .config
-          grep -Eq '^CONFIG_PACKAGE_libopenssl-legacy=(m|y)
+          grep -Eq '^CONFIG_PACKAGE_libopenssl-legacy=[my]
+        run: |
+          sh -n "$GITHUB_WORKSPACE/root/etc/init.d/redsocks2"
+          sh -n "$GITHUB_WORKSPACE/root/usr/bin/redsocks2-speedtest"
+          sh -n "$GITHUB_WORKSPACE/root/usr/bin/redsocks2-subscription"
+          sh -n "$GITHUB_WORKSPACE/root/usr/bin/redsocks2-update-chnroute"
+
+      - name: LuCI JavaScript 语法检查
+        run: |
+          node --check "$GITHUB_WORKSPACE/htdocs/luci-static/resources/view/redsocks2/general-r16.js"
+          node --check "$GITHUB_WORKSPACE/htdocs/luci-static/resources/view/redsocks2/import.js"
+          python3 -m json.tool "$GITHUB_WORKSPACE/root/usr/share/rpcd/acl.d/luci-app-redsocks2.json" >/dev/null
+
+      - name: 编译软件包
+        working-directory: ${{ runner.temp }}/sdk
+        run: |
+          make package/libs/openssl/compile -j2 V=s
+          make package/libs/libevent2/compile -j2 V=s
+          make package/redsocks2/compile -j2 V=s
+          make package/luci-app-redsocks2/compile -j2 V=s
+
+      - name: 收集 IPK 安装包
+        working-directory: ${{ runner.temp }}/sdk
+        run: |
+          set -euxo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          find bin/packages -type f \( -name 'redsocks2_*.ipk' -o -name 'luci-app-redsocks2_*.ipk' \) -exec cp -v {} "$GITHUB_WORKSPACE/dist/" \;
+
+          mapfile -t ipks < <(find "$GITHUB_WORKSPACE/dist" -maxdepth 1 -type f -name '*.ipk' | sort)
+          test "${#ipks[@]}" -eq 2
+          for expected in redsocks2 luci-app-redsocks2; do
+            matches=("$GITHUB_WORKSPACE"/dist/"$expected"_*.ipk)
+            test "${#matches[@]}" -eq 1
+            ipk="${matches[0]}"
+            members="$(tar -tzf "$ipk")"
+            control_member="$(printf '%s\n' "$members" | grep -m1 -E '(^|/)control.tar.gz$')"
+            test -n "$control_member"
+            control="$(tar -xzOf "$ipk" "$control_member" | tar -xzOf - ./control)"
+            printf '%s\n' "$control" | grep -Fx "Package: $expected"
+            printf '%s\n' "$control" | grep -Eq '^Version: [^[:space:]]+'
+            if [ "$expected" = "redsocks2" ]; then
+              printf '%s\n' "$control" | grep -Fx "Version: 20170730-r4"
+              printf '%s\n' "$control" | grep -Eq '^Depends:.*libopenssl-legacy'
+            fi
+            printf '%s\n' "$control" | grep -Eq '^Architecture: [^[:space:]]+'
+            if [ "$expected" = "luci-app-redsocks2" ]; then
+              printf '%s\n' "$control" | grep -Fx "Version: $APP_VERSION"
+              data_member="$(printf '%s\n' "$members" | grep -m1 -E '(^|/)data.tar.gz$')"
+              test -n "$data_member"
+              data_members="$(tar -xzOf "$ipk" "$data_member" | tar -tzf -)"
+              printf '%s\n' "$data_members" | grep -Eq '(^|/)usr/lib/lua/luci/controller/redsocks2\.lua$'
+              printf '%s\n' "$data_members" | grep -Eq '(^|/)usr/share/rpcd/acl\.d/luci-app-redsocks2\.json$'
+              printf '%s\n' "$data_members" | grep -Eq '(^|/)www/luci-static/resources/view/redsocks2/general-r16\.js$'
+              printf '%s\n' "$data_members" | grep -Eq '(^|/)www/luci-static/resources/view/redsocks2/import\.js$'
+              printf '%s\n' "$data_members" | grep -Eq '(^|/)usr/bin/redsocks2-subscription$'
+              controller="$(tar -xzOf "$ipk" "$data_member" | tar -xzOf - ./usr/lib/lua/luci/controller/redsocks2.lua)"
+              printf '%s\n' "$controller" | grep -F 'local general = entry'
+              if printf '%s\n' "$controller" | grep -Fq 'entry({"admin", "services", "redsocks2", "general"}).acl_depends'; then
+                echo "ERROR: stale duplicate LuCI route registration packaged" >&2
+                exit 1
+              fi
+            fi
+            echo "Verified $ipk"
+            printf '%s\n' "$control"
+          done
+          sha256sum "${ipks[@]}"
+          (cd "$GITHUB_WORKSPACE/dist" && sha256sum ./*.ipk > SHA256SUMS && sha256sum -c SHA256SUMS)
+
+      - name: 上传编译产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: redsocks2-immortalwrt-mediatek-filogic
+          path: dist/*
+          if-no-files-found: error
+
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: 下载已验证的编译产物
+        uses: actions/download-artifact@v4
+        with:
+          name: redsocks2-immortalwrt-mediatek-filogic
+          path: dist
+
+      - name: 校验 Release 标签与软件包版本
+        env:
+          APP_VERSION: ${{ needs.build.outputs.app_version }}
+        run: |
+          test -n "$APP_VERSION"
+          test "$GITHUB_REF_NAME" = "v$APP_VERSION"
+          test -f dist/SHA256SUMS
+          test "$(find dist -maxdepth 1 -type f -name '*.ipk' | wc -l)" -eq 2
+          (cd dist && sha256sum -c SHA256SUMS)
+
+      - name: 发布到 GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Redsocks2 ${{ github.ref_name }}（ImmortalWrt 24.10 / MT7981）
+          body: |
+            ## Redsocks2 ${{ github.ref_name }}
+
+            - LuCI 管理插件版本：${{ needs.build.outputs.app_version }}
+            - 核心包版本：20170730-r4
+            - 目标平台：ImmortalWrt 24.10 / MediaTek Filogic / aarch64 Cortex-A53
+            - 当前仅支持 IPv4 TCP 透明代理，不支持 UDP、QUIC 或 IPv6 透明代理。
+            - 请根据是否已安装核心，选择安装核心和 LuCI 插件或仅升级 LuCI 插件。
+          files: dist/*
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+ .config
+          grep -E '^(CONFIG_PACKAGE_(libopenssl|libopenssl-conf|libopenssl-legacy|libevent2|libevent2-openssl|redsocks2|luci-app-redsocks2)=)' .config
+
+      - name: Shell 脚本语法检查
+        run: |
+          sh -n "$GITHUB_WORKSPACE/root/etc/init.d/redsocks2"
+          sh -n "$GITHUB_WORKSPACE/root/usr/bin/redsocks2-speedtest"
+          sh -n "$GITHUB_WORKSPACE/root/usr/bin/redsocks2-subscription"
+          sh -n "$GITHUB_WORKSPACE/root/usr/bin/redsocks2-update-chnroute"
+
+      - name: LuCI JavaScript 语法检查
+        run: |
+          node --check "$GITHUB_WORKSPACE/htdocs/luci-static/resources/view/redsocks2/general-r16.js"
+          node --check "$GITHUB_WORKSPACE/htdocs/luci-static/resources/view/redsocks2/import.js"
+          python3 -m json.tool "$GITHUB_WORKSPACE/root/usr/share/rpcd/acl.d/luci-app-redsocks2.json" >/dev/null
+
+      - name: 编译软件包
+        working-directory: ${{ runner.temp }}/sdk
+        run: |
+          make package/libs/openssl/compile -j2 V=s
+          make package/libs/libevent2/compile -j2 V=s
+          make package/redsocks2/compile -j2 V=s
+          make package/luci-app-redsocks2/compile -j2 V=s
+
+      - name: 收集 IPK 安装包
+        working-directory: ${{ runner.temp }}/sdk
+        run: |
+          set -euxo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          find bin/packages -type f \( -name 'redsocks2_*.ipk' -o -name 'luci-app-redsocks2_*.ipk' \) -exec cp -v {} "$GITHUB_WORKSPACE/dist/" \;
+
+          mapfile -t ipks < <(find "$GITHUB_WORKSPACE/dist" -maxdepth 1 -type f -name '*.ipk' | sort)
+          test "${#ipks[@]}" -eq 2
+          for expected in redsocks2 luci-app-redsocks2; do
+            matches=("$GITHUB_WORKSPACE"/dist/"$expected"_*.ipk)
+            test "${#matches[@]}" -eq 1
+            ipk="${matches[0]}"
+            members="$(tar -tzf "$ipk")"
+            control_member="$(printf '%s\n' "$members" | grep -m1 -E '(^|/)control.tar.gz$')"
+            test -n "$control_member"
+            control="$(tar -xzOf "$ipk" "$control_member" | tar -xzOf - ./control)"
+            printf '%s\n' "$control" | grep -Fx "Package: $expected"
+            printf '%s\n' "$control" | grep -Eq '^Version: [^[:space:]]+'
+            if [ "$expected" = "redsocks2" ]; then
+              printf '%s\n' "$control" | grep -Fx "Version: 20170730-r4"
+              printf '%s\n' "$control" | grep -Eq '^Depends:.*libopenssl-legacy'
+            fi
+            printf '%s\n' "$control" | grep -Eq '^Architecture: [^[:space:]]+'
+            if [ "$expected" = "luci-app-redsocks2" ]; then
+              printf '%s\n' "$control" | grep -Fx "Version: $APP_VERSION"
+              data_member="$(printf '%s\n' "$members" | grep -m1 -E '(^|/)data.tar.gz$')"
+              test -n "$data_member"
+              data_members="$(tar -xzOf "$ipk" "$data_member" | tar -tzf -)"
+              printf '%s\n' "$data_members" | grep -Eq '(^|/)usr/lib/lua/luci/controller/redsocks2\.lua$'
+              printf '%s\n' "$data_members" | grep -Eq '(^|/)usr/share/rpcd/acl\.d/luci-app-redsocks2\.json$'
+              printf '%s\n' "$data_members" | grep -Eq '(^|/)www/luci-static/resources/view/redsocks2/general-r16\.js$'
+              printf '%s\n' "$data_members" | grep -Eq '(^|/)www/luci-static/resources/view/redsocks2/import\.js$'
+              printf '%s\n' "$data_members" | grep -Eq '(^|/)usr/bin/redsocks2-subscription$'
+              controller="$(tar -xzOf "$ipk" "$data_member" | tar -xzOf - ./usr/lib/lua/luci/controller/redsocks2.lua)"
+              printf '%s\n' "$controller" | grep -F 'local general = entry'
+              if printf '%s\n' "$controller" | grep -Fq 'entry({"admin", "services", "redsocks2", "general"}).acl_depends'; then
+                echo "ERROR: stale duplicate LuCI route registration packaged" >&2
+                exit 1
+              fi
+            fi
+            echo "Verified $ipk"
+            printf '%s\n' "$control"
+          done
+          sha256sum "${ipks[@]}"
+          (cd "$GITHUB_WORKSPACE/dist" && sha256sum ./*.ipk > SHA256SUMS && sha256sum -c SHA256SUMS)
+
+      - name: 上传编译产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: redsocks2-immortalwrt-mediatek-filogic
+          path: dist/*
+          if-no-files-found: error
+
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: 下载已验证的编译产物
+        uses: actions/download-artifact@v4
+        with:
+          name: redsocks2-immortalwrt-mediatek-filogic
+          path: dist
+
+      - name: 校验 Release 标签与软件包版本
+        env:
+          APP_VERSION: ${{ needs.build.outputs.app_version }}
+        run: |
+          test -n "$APP_VERSION"
+          test "$GITHUB_REF_NAME" = "v$APP_VERSION"
+          test -f dist/SHA256SUMS
+          test "$(find dist -maxdepth 1 -type f -name '*.ipk' | wc -l)" -eq 2
+          (cd dist && sha256sum -c SHA256SUMS)
+
+      - name: 发布到 GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Redsocks2 ${{ github.ref_name }}（ImmortalWrt 24.10 / MT7981）
+          body: |
+            ## Redsocks2 ${{ github.ref_name }}
+
+            - LuCI 管理插件版本：${{ needs.build.outputs.app_version }}
+            - 核心包版本：20170730-r4
+            - 目标平台：ImmortalWrt 24.10 / MediaTek Filogic / aarch64 Cortex-A53
+            - 当前仅支持 IPv4 TCP 透明代理，不支持 UDP、QUIC 或 IPv6 透明代理。
+            - 请根据是否已安装核心，选择安装核心和 LuCI 插件或仅升级 LuCI 插件。
+          files: dist/*
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+ .config
 
       - name: Shell 脚本语法检查
         run: |
