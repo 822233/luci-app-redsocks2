@@ -74,7 +74,7 @@ jobs:
             cp -a "$GITHUB_WORKSPACE/po" package/luci-app-redsocks2/
           fi
           test -f package/luci-app-redsocks2/Makefile
-          grep -Fx 'PKG_RELEASE:=9' package/luci-app-redsocks2/Makefile
+          grep -Fx 'PKG_RELEASE:=10' package/luci-app-redsocks2/Makefile
           test -f package/luci-app-redsocks2/luasrc/controller/redsocks2.lua
           test -f package/luci-app-redsocks2/htdocs/luci-static/resources/view/redsocks2/general.js
           test -f feeds/luci/luci.mk
@@ -124,7 +124,7 @@ jobs:
             printf '%s\n' "$control" | grep -Eq '^Version: [^[:space:]]+'
             printf '%s\n' "$control" | grep -Eq '^Architecture: [^[:space:]]+'
             if [ "$expected" = "luci-app-redsocks2" ]; then
-              printf '%s\n' "$control" | grep -Fx 'Version: 1.0.3-r9'
+              printf '%s\n' "$control" | grep -Fx 'Version: 1.0.3-r10'
               data_member="$(printf '%s\n' "$members" | grep -m1 -E '(^|/)data.tar.gz$')"
               test -n "$data_member"
               data_members="$(tar -xzOf "$ipk" "$data_member" | tar -tzf -)"
