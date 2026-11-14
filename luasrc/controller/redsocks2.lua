@@ -21,7 +21,7 @@ function index()
 		"测速与订阅", 20).leaf = true
 
 	local import = entry({"admin", "services", "redsocks2", "import"},
-		view("redsocks2/import"),
+		view("redsocks2/import-r19"),
 		"批量导入", 25)
 	import.leaf = true
 	import.acl_depends = { "luci-app-redsocks2" }

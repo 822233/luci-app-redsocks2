@@ -150,12 +150,97 @@ detect_proxy_protocol() {
 	return 0
 }
 
+# Normalize manual input formats before parsing.
+decode_base64_file() {
+	local input="$1" output="$2" encoded
+	encoded="$(tr -d '\r\n\t ' < "$input" | tr '_-' '/+')" || return 1
+	[ -n "$encoded" ] || return 1
+	case $((${#encoded} % 4)) in
+		2) encoded="${encoded}==";;
+		3) encoded="${encoded}=";;
+	esac
+	printf '%s' "$encoded" | base64 -d > "$output" 2>/dev/null
+}
+
+if [ "$MODE" = "manual" ]; then
+	nonempty_lines="$(sed '/^[[:space:]]*$/d' "$LIST" | wc -l | tr -d ' ')"
+	if [ "$nonempty_lines" -eq 1 ]; then
+		input_line="$(sed '/^[[:space:]]*$/d' "$LIST" | head -n 1 | tr -d '\r')"
+		case "$input_line" in
+			http://*|https://*)
+				url_rest="${input_line#*://}"
+				authority="${url_rest%%[/?#]*}"
+				tail_part="${url_rest#"$authority"}"
+				url_port="${authority##*:}"
+				case "$url_port" in ''|*[!0-9]*) is_proxy_uri=0;; *) is_proxy_uri=1;; esac
+				# Some HTTPS proxy share links encode the complete host:port as
+				# URL-safe Base64 in the authority, e.g. https://BASE64?allowInsecure=1.
+				# Recognize that form before treating a query string as a subscription URL.
+				if [ "$is_proxy_uri" -eq 0 ]; then
+					decoded_authority="$(decode_ss "$authority" 2>/dev/null)"
+					decoded_host="${decoded_authority%:*}"
+					decoded_port="${decoded_authority##*:}"
+					case "$decoded_authority" in
+						*:*)
+							case "$decoded_host" in
+								""|*[!A-Za-z0-9._-]*) ;;
+								*)
+								case "$decoded_port" in
+									""|*[!0-9]*) ;;
+									*)
+									if [ "$decoded_port" -ge 1 ] 2>/dev/null && [ "$decoded_port" -le 65535 ] 2>/dev/null; then
+										is_proxy_uri=1
+									fi
+									;;
+								esac
+								;;
+							esac
+							;;
+					esac
+				fi
+				# A query (e.g. ?allowInsecure=1) is not a URL path.
+				case "$tail_part" in ''|'#'*|\?*) has_url_path=0;; *) has_url_path=1;; esac
+				if [ "$is_proxy_uri" -eq 0 ] || [ "$has_url_path" -eq 1 ]; then
+					if command -v curl >/dev/null 2>&1; then
+						curl -fsSL --connect-timeout 15 --max-time 90 --retry 1 -o "$RAW" -- "$input_line" || {
+							echo "订阅链接下载失败"; exit 1;
+						}
+					elif command -v uclient-fetch >/dev/null 2>&1; then
+						uclient-fetch -q -T 90 -O "$RAW" "$input_line" || { echo "订阅链接下载失败"; exit 1; }
+					else
+						echo "缺少 curl 或 uclient-fetch"; exit 1
+					fi
+					if grep -q '://' "$RAW"; then
+						cp "$RAW" "$LIST" || exit 1
+					elif ! decode_base64_file "$RAW" "$LIST"; then
+						echo "订阅内容既不是分享链接列表，也不是有效 Base64"; exit 1
+					fi
+				fi
+			;;
+		esac
+	fi
+	if ! grep -q '://' "$LIST" && ! grep -Eq ':[0-9]+' "$LIST"; then
+		if decode_base64_file "$LIST" "$TMP/decoded-list" && grep -q '://' "$TMP/decoded-list"; then
+			mv "$TMP/decoded-list" "$LIST"
+		fi
+	fi
+fi
+
+
 count=0
 skipped=0
 duplicates=0
 added=0
+line_no=0
+BOM="$(printf '\357\273\277')"
 while IFS= read -r line || [ -n "$line" ]; do
+	line_no=$((line_no+1))
 	line="$(printf '%s' "$line" | tr -d '\r')"
+	# Remove a UTF-8 BOM at the start of the file and surrounding whitespace.
+	if [ "$line_no" -eq 1 ]; then
+		case "$line" in "$BOM"*) line="${line#"$BOM"}";; esac
+	fi
+	line="$(printf '%s' "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
 	case "$line" in ""|\#*) continue;; esac
 	fragment=""
 	case "$line" in *\#*) fragment="${line#*#}"; line="${line%%#*}";; esac
@@ -291,7 +376,10 @@ awk -F '|' '!seen[$1 FS $2 FS $3 FS $4 FS $5 FS $6]++' "$PARSED" > "$TMP/unique"
 mv "$TMP/unique" "$PARSED"
 count="$(wc -l < "$PARSED" | tr -d ' ')"
 
-[ "$count" -gt 0 ] || { echo "没有找到可导入的支持协议节点（跳过 $skipped 条）"; exit 1; }
+[ "$count" -gt 0 ] || {
+	echo "没有找到可导入的支持协议节点（共 $line_no 行，跳过 $skipped 条；支持 HTTP/HTTPS/SOCKS4/SOCKS5 分享链接及自动检测的 IP:端口）"
+	exit 1
+}
 
 # Only replace nodes belonging to this subscription after at least one valid
 # node has been parsed; manually created nodes are untouched.

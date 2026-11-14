@@ -29,8 +29,31 @@ return view.extend({
 			}
 		}, _('选择 TXT 文件并自动识别导入'));
 
+		function formatError(err) {
+			if (err && typeof err === 'object') {
+				var parts = [];
+				if (err.message)
+					parts.push(err.message);
+				if (err.code !== undefined)
+					parts.push('退出码：' + err.code);
+				[ 'stderr', 'stdout' ].forEach(function(key) {
+					if (err[key])
+						parts.push(key + '：' + String(err[key]).trim());
+				});
+				if (parts.length)
+					return parts.join('\n');
+				try {
+					return JSON.stringify(err);
+				}
+				catch (e) {
+					return String(err);
+				}
+			}
+			return String(err || _('未知错误'));
+		}
+
 		function showError(err) {
-			status.textContent = _('导入失败：%s').format(err.message || err);
+			status.textContent = _('导入失败：%s').format(formatError(err));
 		}
 
 		function importFile() {
@@ -38,8 +61,15 @@ return view.extend({
 			return fs.exec('/usr/bin/redsocks2-subscription', [
 				'--file', '/tmp/redsocks2-import.txt', '--type', 'auto'
 			]).then(function(result) {
-				if (result.code !== 0)
-					throw new Error((result.stderr || result.stdout || _('导入失败')).trim());
+				if (result.code !== 0) {
+					var details = [];
+					if (result.stderr)
+						details.push('stderr：' + result.stderr.trim());
+					if (result.stdout)
+						details.push('stdout：' + result.stdout.trim());
+					throw new Error('脚本退出码：' + result.code +
+						(details.length ? '\n' + details.join('\n') : '（脚本未返回错误详情）'));
+				}
 				status.textContent = (result.stdout || _('导入完成')).trim();
 			});
 		}
@@ -66,9 +96,9 @@ return view.extend({
 		}, _('粘贴内容并自动识别导入'));
 
 		return E('div', { 'class': 'cbi-map' }, [
-			E('h2', {}, _('Redsocks2 - 批量导入节点')),
+			E('h2', {}, _('Redsocks2 - 批量导入节点（r19）')),
 			E('p', { 'class': 'cbi-section-descr' },
-				_('分享链接按协议头直接识别；纯 IP:端口自动检测 HTTPS CONNECT、HTTP CONNECT、SOCKS5、SOCKS4。无需手动选择协议。')),
+				_('支持 HTTP/HTTPS/SOCKS4/SOCKS5 分享链接、Base64 订阅内容和 HTTP(S) 订阅地址；纯 IP:端口自动检测代理协议。')),
 			E('div', { 'class': 'cbi-section' }, [
 				E('div', { 'class': 'cbi-value' }, [
 					E('div', { 'class': 'cbi-value-field' }, [ fileButton ])

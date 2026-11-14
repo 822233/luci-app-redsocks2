@@ -11,6 +11,7 @@ on:
     branches:
       - immortalwrt-24.10-https
       - maintenance-r16-cleanup
+      - fix-shadowsocks-ctx-r4
     tags:
       - 'v*'
   pull_request:
@@ -95,9 +96,12 @@ jobs:
           test -f package/luci-app-redsocks2/htdocs/luci-static/resources/view/redsocks2/import.js
           test -f feeds/luci/luci.mk
           make defconfig
-          printf '\nCONFIG_PACKAGE_libopenssl=y\n# CONFIG_OPENSSL_ENGINE is not set\n# CONFIG_OPENSSL_ENGINE_BUILTIN is not set\n# CONFIG_OPENSSL_ENGINE_BUILTIN_DEVCRYPTO is not set\nCONFIG_PACKAGE_libopenssl-conf=y\nCONFIG_PACKAGE_libevent2=y\nCONFIG_PACKAGE_libevent2-openssl=y\nCONFIG_PACKAGE_redsocks2=m\nCONFIG_PACKAGE_luci-app-redsocks2=m\n' >> .config
+          printf '\nCONFIG_PACKAGE_libopenssl=y\n# CONFIG_OPENSSL_ENGINE is not set\n# CONFIG_OPENSSL_ENGINE_BUILTIN is not set\n# CONFIG_OPENSSL_ENGINE_BUILTIN_DEVCRYPTO is not set\nCONFIG_OPENSSL_WITH_CAMELLIA=y\nCONFIG_OPENSSL_WITH_IDEA=y\nCONFIG_OPENSSL_WITH_SEED=y\nCONFIG_PACKAGE_libopenssl-conf=y\nCONFIG_PACKAGE_libevent2=y\nCONFIG_PACKAGE_libevent2-openssl=y\nCONFIG_PACKAGE_redsocks2=m\nCONFIG_PACKAGE_luci-app-redsocks2=m\n' >> .config
           make defconfig
-          grep -E '^(CONFIG_PACKAGE_(libopenssl|libopenssl-conf|libevent2|libevent2-openssl|redsocks2|luci-app-redsocks2)=)' .config
+          grep -Fx 'CONFIG_OPENSSL_WITH_CAMELLIA=y' .config
+          grep -Fx 'CONFIG_OPENSSL_WITH_IDEA=y' .config
+          grep -Fx 'CONFIG_OPENSSL_WITH_SEED=y' .config
+          grep -Eq '^CONFIG_PACKAGE_libopenssl-legacy=[my]' .config
 
       - name: Shell 脚本语法检查
         run: |
@@ -139,6 +143,10 @@ jobs:
             control="$(tar -xzOf "$ipk" "$control_member" | tar -xzOf - ./control)"
             printf '%s\n' "$control" | grep -Fx "Package: $expected"
             printf '%s\n' "$control" | grep -Eq '^Version: [^[:space:]]+'
+            if [ "$expected" = "redsocks2" ]; then
+              printf '%s\n' "$control" | grep -Fx "Version: 20170730-r4"
+              printf '%s\n' "$control" | grep -Eq '^Depends:.*libopenssl-legacy'
+            fi
             printf '%s\n' "$control" | grep -Eq '^Architecture: [^[:space:]]+'
             if [ "$expected" = "luci-app-redsocks2" ]; then
               printf '%s\n' "$control" | grep -Fx "Version: $APP_VERSION"
@@ -203,7 +211,7 @@ jobs:
             ## Redsocks2 ${{ github.ref_name }}
 
             - LuCI 管理插件版本：${{ needs.build.outputs.app_version }}
-            - 核心包版本：20170730-r3
+            - 核心包版本：20170730-r4
             - 目标平台：ImmortalWrt 24.10 / MediaTek Filogic / aarch64 Cortex-A53
             - 当前仅支持 IPv4 TCP 透明代理，不支持 UDP、QUIC 或 IPv6 透明代理。
             - 请根据是否已安装核心，选择安装核心和 LuCI 插件或仅升级 LuCI 插件。
