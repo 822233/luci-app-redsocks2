@@ -173,6 +173,31 @@ if [ "$MODE" = "manual" ]; then
 				tail_part="${url_rest#"$authority"}"
 				url_port="${authority##*:}"
 				case "$url_port" in ''|*[!0-9]*) is_proxy_uri=0;; *) is_proxy_uri=1;; esac
+				# Some HTTPS proxy share links encode the complete host:port as
+				# URL-safe Base64 in the authority, e.g. https://BASE64?allowInsecure=1.
+				# Recognize that form before treating a query string as a subscription URL.
+				if [ "$is_proxy_uri" -eq 0 ]; then
+					decoded_authority="$(decode_ss "$authority" 2>/dev/null)"
+					decoded_host="${decoded_authority%:*}"
+					decoded_port="${decoded_authority##*:}"
+					case "$decoded_authority" in
+						*:*)
+							case "$decoded_host" in
+								""|*[!A-Za-z0-9._-]*) ;;
+								*)
+								case "$decoded_port" in
+									""|*[!0-9]*) ;;
+									*)
+									if [ "$decoded_port" -ge 1 ] 2>/dev/null && [ "$decoded_port" -le 65535 ] 2>/dev/null; then
+										is_proxy_uri=1
+									fi
+									;;
+								esac
+								;;
+							esac
+							;;
+					esac
+				fi
 				case "$tail_part" in ''|'#'*) has_url_path=0;; *) has_url_path=1;; esac
 				if [ "$is_proxy_uri" -eq 0 ] || [ "$has_url_path" -eq 1 ]; then
 					if command -v curl >/dev/null 2>&1; then
