@@ -13,7 +13,7 @@ return view.extend({
 			E('option', { 'value': 'socks4' }, _('SOCKS4'))
 		]);
 		var status = E('p', { 'class': 'cbi-section-descr' },
-			_('尚未导入。TXT 文件每行填写一个 IP:端口；纯 IP:端口将按上面选择的协议探测；分享链接自动识别协议。'));
+			_('尚未导入。TXT 文件每行填写一个 IP:端口；纯 IP:端口使用并发协议握手自动识别；分享链接直接按协议头识别，不进行探测。'));
 		var button;
 		button = E('button', {
 			'class': 'cbi-button cbi-button-action important',
