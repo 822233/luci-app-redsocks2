@@ -7,7 +7,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-redsocks2
 PKG_VERSION:=1.0.4
-PKG_RELEASE:=17
+PKG_RELEASE:=18
 
 LUCI_TITLE:=Redsocks2 透明代理管理界面
 LUCI_DESCRIPTION:=Redsocks2 TCP 透明代理，支持多节点、订阅导入和网页测速
