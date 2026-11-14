@@ -30,3 +30,6 @@ Compatibility note:
 
 - Fix the SDK workflow release assertion to match the package release (the previous workflow stopped before compilation because it still expected r8 while Makefile was r10).
 - Add TXT upload and paste import for newline-separated IP:port proxy lists. The importer supports a selectable common protocol, validates endpoints and ports, filters duplicates, preserves existing manually configured nodes, and reports added/skipped counts.
+
+- Add a dedicated LuCI batch-import page with native TXT upload and selectable HTTP CONNECT / HTTPS CONNECT / SOCKS4 / SOCKS5 protocol for plain IP:port lists.
+- Align SDK preparation and IPK version assertions with release 1.0.3-r12; check the import page syntax and packaged payload.

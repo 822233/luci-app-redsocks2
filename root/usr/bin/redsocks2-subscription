@@ -15,7 +15,7 @@ if [ "$1" = "--file" ]; then
 		MANUAL_TYPE="$2"
 		shift 2
 	fi
-	case "$MANUAL_TYPE" in ""|http-connect|https-connect|socks4|socks5) ;;
+	case "$MANUAL_TYPE" in http-connect|https-connect|socks4|socks5) ;;
 		*) echo "批量导入协议无效"; exit 1;;
 	esac
 	[ -s "$MANUAL_FILE" ] || { echo "导入内容为空"; exit 1; }

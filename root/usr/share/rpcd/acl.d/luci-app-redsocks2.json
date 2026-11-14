@@ -3,24 +3,43 @@
 		"description": "Grant access to Redsocks2 configuration and controlled node import",
 		"read": {
 			"file": {
-				"/etc/init.d/redsocks2": [ "exec" ]
+				"/etc/init.d/redsocks2": [
+					"exec"
+				]
 			},
 			"ubus": {
-				"file": [ "exec" ]
+				"file": [
+					"exec"
+				]
 			},
-			"uci": [ "redsocks2" ]
+			"uci": [
+				"redsocks2"
+			]
 		},
 		"write": {
 			"file": {
-				"/etc/init.d/redsocks2": [ "exec" ],
-				"/sbin/uci": [ "exec" ],
-				"/usr/bin/redsocks2-subscription": [ "exec" ],
-				"/tmp/redsocks2-import.txt": [ "write" ]
+				"/etc/init.d/redsocks2": [
+					"exec"
+				],
+				"/sbin/uci": [
+					"exec"
+				],
+				"/usr/bin/redsocks2-subscription": [
+					"exec"
+				],
+				"/tmp/redsocks2-import.txt": [
+					"write"
+				]
 			},
 			"ubus": {
-				"file": [ "exec", "write" ]
+				"file": [
+					"exec",
+					"write"
+				]
 			},
-			"uci": [ "redsocks2" ]
+			"uci": [
+				"redsocks2"
+			]
 		}
 	}
 }

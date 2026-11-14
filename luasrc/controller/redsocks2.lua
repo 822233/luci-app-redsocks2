@@ -20,6 +20,12 @@ function index()
 		cbi("redsocks2/speedtest"),
 		"测速与订阅", 20).leaf = true
 
+	local import = entry({"admin", "services", "redsocks2", "import"},
+		view("redsocks2/import"),
+		"批量导入", 25)
+	import.leaf = true
+	import.acl_depends = { "luci-app-redsocks2" }
+
 	entry({"admin", "services", "redsocks2", "advanced"},
 		cbi("redsocks2/advanced"),
 		"高级设置", 30).leaf = true
