@@ -11,6 +11,7 @@ on:
     branches:
       - immortalwrt-24.10-https
       - maintenance-r16-cleanup
+      - fix-shadowsocks-ctx-r4
     tags:
       - 'v*'
   pull_request:
