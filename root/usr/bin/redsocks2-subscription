@@ -5,10 +5,19 @@
 MODE="subscription"
 SUB=""
 MANUAL_FILE=""
+MANUAL_TYPE=""
 if [ "$1" = "--file" ]; then
 	MODE="manual"
 	MANUAL_FILE="$2"
 	[ "$MANUAL_FILE" = "/tmp/redsocks2-import.txt" ] || { echo "导入文件路径无效"; exit 1; }
+	shift 2
+	if [ "$1" = "--type" ]; then
+		MANUAL_TYPE="$2"
+		shift 2
+	fi
+	case "$MANUAL_TYPE" in ""|http-connect|https-connect|socks4|socks5) ;;
+		*) echo "批量导入协议无效"; exit 1;;
+	esac
 	[ -s "$MANUAL_FILE" ] || { echo "导入内容为空"; exit 1; }
 else
 	SUB="$1"
@@ -138,7 +147,14 @@ while IFS= read -r line || [ -n "$line" ]; do
 			method="$(decode_uri_component "$method")" || { skipped=$((skipped+1)); continue; }
 			pass="$(decode_uri_component "$pass")" || { skipped=$((skipped+1)); continue; }
 			;;
-		*) skipped=$((skipped+1)); continue;;
+		*) 
+			if [ "$MODE" = "manual" ] && [ -n "$MANUAL_TYPE" ]; then
+				proto="$MANUAL_TYPE"
+				rest="$line"
+			else
+				skipped=$((skipped+1)); continue
+			fi
+			;;
 	esac
 	if [ "$proto" != "shadowsocks" ]; then
 		case "$rest" in *@*) auth="${rest%%@*}"; endpoint="${rest#*@}";; *) endpoint="$rest";; esac
