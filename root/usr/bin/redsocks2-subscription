@@ -138,7 +138,7 @@ detect_proxy_protocol() {
 		echo "https-connect"
 	elif grep -Eiq 'CONNECT tunnel established|< HTTP/[0-9.]+ (200|403|407|502|503|504)' "$probe_dir/http"; then
 		echo "http-connect"
-	elif grep -Eiq 'SOCKS5 request granted|SOCKS5 connect to|SOCKS5.*authentication' "$probe_dir/socks5"; then
+	elif grep -Eiq 'SOCKS5 request granted|SOCKS5 connect to|SOCKS5.*authentication|No authentication method was acceptable' "$probe_dir/socks5"; then
 		echo "socks5"
 	elif grep -Eiq 'SOCKS4 request granted|SOCKS4 request rejected|SOCKS4 connect to' "$probe_dir/socks4"; then
 		echo "socks4"
