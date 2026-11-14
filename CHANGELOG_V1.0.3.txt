@@ -33,3 +33,6 @@ Compatibility note:
 
 - Add a dedicated LuCI batch-import page with native TXT upload and selectable HTTP CONNECT / HTTPS CONNECT / SOCKS4 / SOCKS5 protocol for plain IP:port lists.
 - Align SDK preparation and IPK version assertions with release 1.0.3-r12; check the import page syntax and packaged payload.
+
+- Correct the release-12 workflow file-integrity check and align all SDK/IPK assertions with release 1.0.3-r13.
+- Ensure empty uploaded text files are removed after validation failure.

@@ -18,7 +18,7 @@ if [ "$1" = "--file" ]; then
 	case "$MANUAL_TYPE" in http-connect|https-connect|socks4|socks5) ;;
 		*) echo "批量导入协议无效"; exit 1;;
 	esac
-	[ -s "$MANUAL_FILE" ] || { echo "导入内容为空"; exit 1; }
+	[ -s "$MANUAL_FILE" ] || { rm -f "$MANUAL_FILE"; echo "导入内容为空"; exit 1; }
 else
 	SUB="$1"
 	case "$SUB" in ""|*[!A-Za-z0-9_]*) echo "订阅编号无效"; exit 1;; esac
