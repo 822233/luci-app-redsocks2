@@ -6,13 +6,14 @@
 return view.extend({
 	render: function() {
 		var protocol = E('select', { 'id': 'redsocks2-import-protocol', 'class': 'cbi-input-select' }, [
+			E('option', { 'value': 'auto' }, _('自动检测（推荐）')),
 			E('option', { 'value': 'https-connect' }, _('HTTPS CONNECT')),
 			E('option', { 'value': 'http-connect' }, _('HTTP CONNECT')),
 			E('option', { 'value': 'socks5' }, _('SOCKS5')),
 			E('option', { 'value': 'socks4' }, _('SOCKS4'))
 		]);
 		var status = E('p', { 'class': 'cbi-section-descr' },
-			_('尚未导入。TXT 文件每行填写一个 IP:端口；同一文件中的节点将使用上面选择的协议。'));
+			_('尚未导入。TXT 文件每行填写一个 IP:端口；纯 IP:端口将按上面选择的协议探测；分享链接自动识别协议。'));
 		var button;
 		button = E('button', {
 			'class': 'cbi-button cbi-button-action important',
