@@ -15,7 +15,7 @@ if [ "$1" = "--file" ]; then
 		MANUAL_TYPE="$2"
 		shift 2
 	fi
-	case "$MANUAL_TYPE" in http-connect|https-connect|socks4|socks5) ;;
+	case "$MANUAL_TYPE" in auto|http-connect|https-connect|socks4|socks5) ;;
 		*) echo "批量导入协议无效"; exit 1;;
 	esac
 	[ -s "$MANUAL_FILE" ] || { rm -f "$MANUAL_FILE"; echo "导入内容为空"; exit 1; }
@@ -111,6 +111,22 @@ check_existing_node() {
 	fi
 }
 
+detect_proxy_protocol() {
+	local host="$1" port="$2" proxy=""
+	command -v curl >/dev/null 2>&1 || return 1
+	for proxy in "https://$host:$port" "http://$host:$port" "socks5h://$host:$port" "socks4a://$host:$port"; do
+		if curl -kfsS --connect-timeout 2 --max-time 4 --proxy "$proxy" -o /dev/null https://www.gstatic.com/generate_204 2>/dev/null; then
+			case "$proxy" in
+				https://*) echo "https-connect"; return 0;;
+				http://*) echo "http-connect"; return 0;;
+				socks5h://*) echo "socks5"; return 0;;
+				socks4a://*) echo "socks4"; return 0;;
+			esac
+		fi
+	done
+	return 1
+}
+
 count=0
 skipped=0
 duplicates=0
@@ -183,6 +199,13 @@ while IFS= read -r line || [ -n "$line" ]; do
 	case "$host" in ""|*\[*|*\]*|*[!A-Za-z0-9._-]*) skipped=$((skipped+1)); continue;; esac
 	case "$port" in ""|*[!0-9]*) skipped=$((skipped+1)); continue;; esac
 	[ "$port" -ge 1 ] 2>/dev/null && [ "$port" -le 65535 ] 2>/dev/null || { skipped=$((skipped+1)); continue; }
+	if [ "$proto" = "auto" ]; then
+		proto="$(detect_proxy_protocol "$host" "$port")" || {
+			echo "自动检测失败：$host:$port（可能离线、需要认证或协议不受支持）" >&2
+			skipped=$((skipped+1))
+			continue
+		}
+	fi
 	if printf '%s' "$user$pass$method" | grep -q '[|[:cntrl:]]'; then
 		skipped=$((skipped+1))
 		continue
